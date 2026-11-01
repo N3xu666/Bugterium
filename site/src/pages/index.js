@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import Layout from '@theme/Layout';
 import BrowserOnly from '@docusaurus/BrowserOnly';
 import Link from '@docusaurus/Link';
@@ -26,19 +26,19 @@ export default function Home() {
       const revealed = target.slice(0, Math.floor(frame));
       const scrambled = target.slice(Math.floor(frame)).split('').map(() => chars[Math.floor(Math.random() * chars.length)]).join('');
       setDisplaySync(revealed + scrambled);
-
-      if (frame >= target.length) {
-        clearInterval(interval);
-        setDisplaySync(target);
-        setIsAnimating(false); 
-        setIsTextReady(true); 
-      }
-    }, 35); 
+    }, 50); 
 
     return () => {
       clearInterval(interval);
     };
   }, [lastSync]);
+  useEffect(() => {
+    if (isGraphReady) {
+      setDisplaySync(lastSync);
+      setIsAnimating(false);
+      setIsTextReady(true);
+    }
+  }, [isGraphReady, lastSync]);
 
   return (
     <Layout title="MethodMan / NEURAL PORT" description="Neural graph of MethodMan pentest walkthroughs" noFooter={true}>
@@ -89,7 +89,7 @@ export default function Home() {
             </span>
 
             <span style={{ position: 'absolute', left: 0, top: 0 }}>
-              <span className={isAnimating ? styles.blink : ''} style={{ color: '#c00030', fontWeight: 'bold' }}>LAST SYNC:</span> {displaySync}
+              <span className={isAnimating ? styles.blink : ''} style={{ color: '#c00030', fontWeight: 'bold', transition: 'opacity 0.5s ease-out' }}>LAST SYNC:</span> {displaySync}
             </span>
             
           </span>

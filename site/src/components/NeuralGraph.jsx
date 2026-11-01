@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useMemo, useCallback } from 'react';
+﻿import { useEffect, useRef, useState, useMemo, useCallback } from 'react';
 import ForceGraph3D from 'react-force-graph-3d';
 import * as THREE from 'three';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
@@ -268,7 +268,8 @@ export default function NeuralGraph({ onReady }) {
   const [size, setSize] = useState({ width: 0, height: 0 });
   const [error, setError] = useState(null);
   const [isReady, setIsReady] = useState(false);
-
+  const [fading, setFading] = useState(false);
+  
   useEffect(() => {
     if (isReady && onReady) onReady();
   }, [isReady, onReady]);
@@ -427,8 +428,8 @@ export default function NeuralGraph({ onReady }) {
         <span className="status">{status}</span>
       </header>
                 <main className="stage" ref={containerRef}>
-        {!isReady && (
-          <div className="loading-overlay">
+        {(!isReady || fading) && (
+          <div className={"loading-overlay" + (fading ? " fading" : "")}>
             <div className="loading-text">INITIALIZING NEURAL PORT...</div>
             <div className="loading-bar"><div className="loading-bar-fill"></div></div>
           </div>
@@ -437,10 +438,10 @@ export default function NeuralGraph({ onReady }) {
       <div className="legend-box">
         
         <div className="legend-items">
-        <div className="legend-item"><span className="legend-dot dot-home"></span> Folder</div>
-        <div className="legend-item"><span className="legend-dot dot-file"></span> File</div>
-        <div className="legend-item"><span className="legend-dot dot-tool"></span> Tool</div>
-        <div className="legend-item"><span className="legend-dot dot-cve"></span> CVE</div>
+        <div className="legend-item"><span className="legend-dot dot-cve"></span> <span className="legend-text">CVE</span></div>
+        <div className="legend-item"><span className="legend-dot dot-tool"></span> <span className="legend-text">Tool</span></div>
+        <div className="legend-item"><span className="legend-dot dot-file"></span> <span className="legend-text">File</span></div>
+        <div className="legend-item"><span className="legend-dot dot-home"></span> <span className="legend-text">Folder</span></div>
         </div>
       </div>
         {size.width > 0 && visible.nodes.length > 0 && (
@@ -483,11 +484,17 @@ export default function NeuralGraph({ onReady }) {
             }}
             onEngineStop={() => {
               setIsReady(true);
+              setFading(true);
+              setTimeout(() => setFading(false), 500);
             }}
           />
         )}
         {/* CUSTOM_NAV_TEXT */}
-        <div className='custom-nav-info'>Left-click: rotate, Mouse-wheel/middle-click: zoom, Right-click: pan</div>
+        <div className='custom-nav-info'>
+          <div>Left-click: rotate</div>
+          <div>Mouse-wheel/middle-click: zoom</div>
+          <div>Right-click: pan</div>
+        </div>
         {!error && (!graph || visible.nodes.length === 0) && (
           <p className="hint">{graph ? 'empty focus' : ''}</p>
         )}

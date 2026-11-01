@@ -112,7 +112,7 @@
 
 .mode-toggle {
   display: flex;
-  gap: 4px;
+  gap: 6px;
   margin: 0 12px;
 }
 
@@ -161,11 +161,12 @@
 /* Legend Box */
 .legend-box {
   position: absolute;
+  z-index: 10000 !important;
   top: 20px;
   left: 20px;
-  background: rgba(0, 0, 0, 0.85);
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  padding: 8px 12px;
+  background: none;
+  border: none;
+  padding: 0;
   border-radius: 4px;
   font-family: 'JetBrains Mono', ui-monospace, monospace;
   font-size: 10px;
@@ -185,13 +186,13 @@
 
 .dot-home { background-color: #ffffff; color: #ffffff; }
 .dot-file { background-color: #a855f7; color: #a855f7; }
-.dot-tool { background-color: #c00030; color: #c00030; }
+.dot-tool { background-color: #c00030; color: #c00030; margin-right: 5px !important; }
 .dot-cve  { background-color: #ffaa00; color: #ffaa00; }
 
 .legend-items {
   display: flex;
-  flex-direction: row;
-  gap: 12px;
+  flex-direction: column;
+  gap: 9px;
 }
 
 .legend-item {
@@ -199,10 +200,15 @@
   align-items: center;
 }
 
+.legend-text {
+  line-height: 1;
+  transform: translateY(1px);
+}
+
 .legend-dot {
   display: inline-block !important;
-  width: 6px !important;
-  height: 6px !important;
+  width: 8px !important;
+  height: 8px !important;
   border-radius: 50% !important;
   margin-right: 6px;
   flex-shrink: 0;
@@ -211,12 +217,13 @@
 .loading-overlay {
   position: absolute;
   inset: 0;
-  background: rgba(0, 0, 0, 0.8);
+  background: transparent;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   z-index: 100;
+  transition: opacity 0.5s ease-out;
   font-family: 'JetBrains Mono', monospace;
 }
 
@@ -225,7 +232,7 @@
   font-size: 18px;
   letter-spacing: 2px;
   margin-bottom: 20px;
-  animation: blink 1.5s infinite;
+  animation: blink 1.5s ease-in-out infinite;
 }
 
 .loading-bar {
@@ -265,14 +272,14 @@
 /* CUSTOM_NAV_CSS */
 .custom-nav-info {
   position: absolute;
-  bottom: 10px;
-  left: 50%;
-  transform: translateX(-50%);
+  bottom: 17px;
+  left: 20px;
   z-index: 10000;
   color: #c00030;
   font-family: 'JetBrains Mono', monospace;
   font-size: 9px;
-  white-space: nowrap;
+  text-align: left;
+  line-height: 1.6;
   pointer-events: none;
 }
 [data-theme='light'] .stage canvas {
@@ -295,4 +302,67 @@
 }
 [data-theme='light'] .loading-bar-fill {
   background: #c00030;
+}
+
+/* Light Theme Legend Overrides */
+[data-theme='light'] .legend-item:nth-child(n+2) {
+  display: none !important;
+}
+[data-theme='light'] .legend-item:nth-child(1) .dot-cve {
+  background-color: #000000 !important;
+}
+
+[data-theme='light'] .legend-item:nth-child(1) .legend-text {
+  color: transparent !important;
+  font-size: 10px !important;
+  position: relative;
+  display: inline-block;
+  line-height: 1;
+  transform: translateY(0.5px);
+}
+[data-theme='light'] .legend-item:nth-child(1) .legend-text::after {
+  content: 'Monochrome';
+  color: #000000 !important;
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  white-space: nowrap;
+}
+[data-theme='light'] .legend-item:nth-child(1) .legend-text::before {
+  content: 'switch to dark theme\A for color mode';
+  color: #666666 !important;
+  position: absolute;
+  left: -14px;
+  top: 100%;
+  margin-top: 2px;
+  white-space: pre;
+  line-height: 1.6;
+  font-size: 8px;
+}
+[data-theme='light'] .loading-overlay.fading, .loading-overlay.fading {
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* Fading Background */
+.loading-overlay::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: rgba(0, 0, 0, 0.8);
+  animation: fadeBg 10s linear forwards;
+}
+[data-theme='light'] .loading-overlay::before {
+  background: rgba(255, 255, 255, 0.8);
+}
+@keyframes fadeBg {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+.loading-overlay.fading {
+  opacity: 0 !important;
+  transition: opacity 0.5s ease-out;
+  pointer-events: none;
 }
