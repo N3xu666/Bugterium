@@ -56,7 +56,7 @@ export default function Home() {
         </div>
 
         <div className={styles.centerCol}>
-          <BrowserOnly fallback={<div style={{background:'#000',height:'100%'}} />}>
+          <BrowserOnly fallback={<div style={{background:'var(--bg)',height:'100%'}} />}>
             {() => {
               const NeuralGraph = require('@site/src/components/NeuralGraph').default;
               return <NeuralGraph onReady={() => setIsGraphReady(true)} />;
