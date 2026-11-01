@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+﻿import React, { useEffect, useState } from 'react';
 import styles from '../pages/index.module.css';
 
 export default function LiveThreats({ onSync }) {
@@ -18,7 +18,14 @@ export default function LiveThreats({ onSync }) {
         .then((data) => {
           if (isMounted) {
             setThreats(data.cves);
-            if (onSync) onSync(data.last_sync);
+            if (onSync) {
+              const parts = data.last_sync.split(' ');
+              if (parts[0] && parts[0].includes('-')) {
+                const ymd = parts[0].split('-');
+                if (ymd.length === 3) parts[0] = ymd[2] + '-' + ymd[1] + '-' + ymd[0];
+              }
+              onSync(parts.join(' '));
+            }
             setLoading(false);
             setError(null);
           }
