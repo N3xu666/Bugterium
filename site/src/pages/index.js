@@ -15,30 +15,31 @@ export default function Home() {
 
   useEffect(() => {
     setIsAnimating(true);
-    setIsTextReady(false); 
-
+    setIsTextReady(false);
     const target = lastSync;
     const chars = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ!@#$%^&*';
     let frame = 0;
-
     const interval = setInterval(() => {
-      frame += 0.25; 
+      frame += 0.2;
       const revealed = target.slice(0, Math.floor(frame));
       const scrambled = target.slice(Math.floor(frame)).split('').map(() => chars[Math.floor(Math.random() * chars.length)]).join('');
       setDisplaySync(revealed + scrambled);
-    }, 50); 
-
-    return () => {
-      clearInterval(interval);
-    };
+      if (frame >= target.length) {
+        clearInterval(interval);
+      }
+    }, 30);
+    return () => clearInterval(interval);
   }, [lastSync]);
+  
   useEffect(() => {
     if (isGraphReady) {
-      setDisplaySync(lastSync);
       setIsAnimating(false);
-      setIsTextReady(true);
+      const timer = setTimeout(() => {
+        setIsTextReady(true);
+      }, 600);
+      return () => clearTimeout(timer);
     }
-  }, [isGraphReady, lastSync]);
+  }, [isGraphReady]);
 
   return (
     <Layout title="MethodMan / NEURAL PORT" description="Neural graph of MethodMan pentest walkthroughs" noFooter={true}>
