@@ -5,7 +5,7 @@
 > OS: Linux  
 > Çətinlik: Çətin  
 > Status: **Tamamlandı**  
-> Nəticə: Aktiv Maşın  
+> Nəticə: root  
 
 ---
 

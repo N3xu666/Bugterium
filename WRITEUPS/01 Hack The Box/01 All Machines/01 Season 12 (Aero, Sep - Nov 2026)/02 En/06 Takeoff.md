@@ -5,7 +5,7 @@
 > OS: Linux  
 > Difficulty: Hard  
 > Status: **Completed**  
-> Result: Active Machine  
+> Result: root  
 
 ---
 
