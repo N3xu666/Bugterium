@@ -10,7 +10,7 @@
 
 New HTB machines are added as they are completed (retired only - see the stub scheme below for active machines). Reference material grows in parallel: the Application Security Reference (`APPLICATIONS/`), the Infrastructure Security Reference (`INFRASTRUCTURE/`), the AI Security Reference (`AI/`), the Anonymity, Privacy and OpSec Reference (`ANONYMITY-PRIVACY-OPSEC/`), the Network Security Reference (`NETWORKS/`), the Cloud Security Reference (`CLOUD/`), the Virtualization Security Reference (`VIRTUALIZATION/`), the Open-Source Intelligence Reference (`OSINT/`), the Information Security Management Reference (`INFORMATION_SECURITY/`), methodology notes, cheatsheets, and custom tooling (`tools/`).
 
-Writeups available in Az/En/Ru. Currently: **24 published (retired) + 6 active stubs** = **30 completed machines**.
+Writeups available in Az/En/Ru. Currently: **24 published (retired) + 7 active stubs** = **31 completed machines**.
 
 > The `(Now: M machines)` counter counts **only published walkthroughs** (machines retired on Hack The Box). Writeups for active machines are withheld per HTB ToS and stored as stubs (`Status: Completed`) until retirement.
 
