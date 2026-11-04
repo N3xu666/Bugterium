@@ -4,6 +4,7 @@
 name = "bugterium-bff"
 main = "src/index.ts"
 compatibility_date = "2026-11-04"
+workers_dev = true
 
 [assets]
 directory = "./public"
@@ -13,9 +14,9 @@ run_worker_first = ["/api/*", "/auth/*"]
 [vars]
 ENVIRONMENT = "development"
 COOKIE_NAME = "bugterium_session"
-# Укажи здесь свой GitHub ID (число) через запятую, чтобы стать админом. 
+# Укажи здесь свой GitHub ID (число) через запятую, чтобы стать админом.
 # Узнать ID можно тут: https://api.github.com/users/ТВОЙ_НИКНЕЙМ
-ADMIN_GITHUB_IDS = "192156933" 
+ADMIN_GITHUB_IDS = "192156933"
 
 [[d1_databases]]
 binding = "DB"
@@ -24,5 +25,3 @@ database_id = "c4510ea0-edeb-49a2-85c3-52989c46539c"
 
 [triggers]
 crons = ["0 3 * * *"]
-
-workers_dev = true
