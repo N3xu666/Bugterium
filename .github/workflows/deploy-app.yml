@@ -36,10 +36,6 @@ jobs:
       - name: Build frontend
         working-directory: app/frontend
         run: npm ci && npm run build
-      - name: Copy frontend build into BFF public
-        run: |
-          rm -rf app/bff/public/assets
-          cp -r app/frontend/dist/* app/bff/public/
       - name: Deploy Worker
         working-directory: app/bff
         run: npx wrangler deploy --minify
