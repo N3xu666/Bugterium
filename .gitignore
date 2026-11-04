@@ -75,3 +75,6 @@ _WORKFLOW.md*
 .env
 .env.*
 !.env.example
+
+# Internal Roadmap (Local only)
+ROADMAP.md
