@@ -3,3 +3,5 @@
 
 # Vite build artifacts — minified bundles, Semgrep таймаутит
 app/bff/public/assets/
+# Test fixtures intentionally contain fake secrets for mask.ps1 tests
+tests/fixtures/
