@@ -1,0 +1,5 @@
+# Docs — не код, Semgrep даёт false positives (Spring Boot, Dependabot)
+*.md
+
+# Vite build artifacts — minified bundles, Semgrep таймаутит
+app/bff/public/assets/
