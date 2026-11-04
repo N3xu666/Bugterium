@@ -35,7 +35,7 @@ jobs:
         with:
           python-version: "3.12"
       - name: Install Semgrep
-        run: pip install "setuptools<82" semgrep==1.99.0
+        run: pip install semgrep==1.137.0
       - name: Run Semgrep
         run: |
           semgrep ci \
