@@ -1,0 +1,96 @@
+name: App CI
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'app/**'
+      - '.github/workflows/app-ci.yml'
+      - '.semgrepignore'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'app/**'
+      - '.github/workflows/app-ci.yml'
+      - '.semgrepignore'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  sast:
+    name: SAST (Semgrep)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0  # v7.1.0
+        with:
+          python-version: "3.12"
+      - name: Install Semgrep
+        run: pip install semgrep==1.99.0
+      - name: Run Semgrep
+        run: |
+          semgrep ci \
+            --config auto \
+            --config p/owasp-top-ten \
+            --config p/typescript \
+            --exclude-rule='generic.secrets.security.detected-generic-api-key'
+
+  sca:
+    name: SCA (Trivy + npm audit)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Trivy filesystem scan
+        uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1  # v0.35.0
+        with:
+          scan-type: fs
+          scan-ref: app
+          severity: HIGH,CRITICAL
+          exit-code: '1'
+          ignore-unfixed: true
+          skip-dirs: 'app/bff/node_modules,app/frontend/node_modules'
+      - name: npm audit (bff)
+        working-directory: app/bff
+        run: npm audit --omit=dev --audit-level=high
+      - name: npm audit (frontend)
+        working-directory: app/frontend
+        run: npm audit --omit=dev --audit-level=high
+
+  dast:
+    name: DAST (ZAP baseline, advisory)
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+      - name: ZAP Baseline Scan
+        uses: zaproxy/action-baseline@15c68dd2097803f36bcaf23ef2582c84bccdb72d  # v0.14.0
+        with:
+          target: 'https://app.bugterium.pages.dev'
+          cmd_options: '-a'
+          fail_action: false
+
+  dependency-review:
+    name: Dependency Review
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/dependency-review-action@2031cfc080254a8a887f58cffee85186f0e49e48  # v4.9.0
+        with:
+          fail-on-severity: high
+          comment-summary-in-pr: true
