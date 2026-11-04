@@ -42,7 +42,7 @@ export default function Home() {
   }, [isGraphReady]);
 
   return (
-    <Layout title="MethodMan / NEURAL PORT" description="Neural graph of MethodMan pentest walkthroughs" noFooter={true}>
+    <Layout title="Bugterium / NEURAL PORT" description="Neural graph of Bugterium pentest walkthroughs" noFooter={true}>
       <div className={styles.layout}>
 
         <div className={styles.leftCol}>

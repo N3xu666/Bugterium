@@ -1,6 +1,6 @@
 ﻿# Session_Report.py
 
-> Linux-only terminal session recorder that produces a MethodMan walkthrough
+> Linux-only terminal session recorder that produces a Bugterium walkthrough
 > draft in the section 3.2 format. Records in a clean `bash` subshell by
 > default, so the transcript is readable regardless of your own shell config.
 
@@ -135,9 +135,9 @@ from the saved `raw.txt` without re-recording the session.
 
 ```
 $ python Session_Report.py start --machine Layover --target 10.10.11.10 --language en
-[Session_Report] Session directory: /home/op/MethodMan/sessions/Layover-20261012T143012Z
-[Session_Report] Metadata:          /home/op/MethodMan/sessions/Layover-20261012T143012Z/metadata.json
-[Session_Report] Draft:             /home/op/MethodMan/sessions/Layover-20261012T143012Z/walkthrough-draft.md
+[Session_Report] Session directory: /home/op/Bugterium/sessions/Layover-20261012T143012Z
+[Session_Report] Metadata:          /home/op/Bugterium/sessions/Layover-20261012T143012Z/metadata.json
+[Session_Report] Draft:             /home/op/Bugterium/sessions/Layover-20261012T143012Z/walkthrough-draft.md
 [Session_Report] Shell:             /bin/bash --noprofile --norc (clean, no user configs)
 [Session_Report] Cleaner:           heuristic
 [Session_Report] Starting script(1). Type 'exit' to stop recording.
@@ -147,7 +147,7 @@ $ nmap -p- --min-rate 5000 10.10.11.10
 $ exit
 
 [Session_Report] Transcript cleaned: 8432 -> 6211 bytes.
-[Session_Report] Final draft: /home/op/MethodMan/sessions/Layover-20261012T143012Z/walkthrough-draft.md
+[Session_Report] Final draft: /home/op/Bugterium/sessions/Layover-20261012T143012Z/walkthrough-draft.md
 ```
 
 ---

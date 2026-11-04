@@ -1,6 +1,6 @@
 ﻿#!/usr/bin/env python3
 """
-Session_Report.py - Linux terminal session recorder for MethodMan.
+Session_Report.py - Linux terminal session recorder for Bugterium.
 
 Records a terminal session using script(1) from util-linux and produces a
 walkthrough draft in the MethodMan section 3.2 format.
@@ -498,7 +498,7 @@ def cmd_reclean(args: argparse.Namespace) -> int:
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="Session_Report.py",
-        description="Record a Linux terminal session and produce a MethodMan "
+        description="Record a Linux terminal session and produce a Bugterium "
                     "walkthrough draft (section 3.2 format).",
     )
     parser.add_argument("--version", action="version",

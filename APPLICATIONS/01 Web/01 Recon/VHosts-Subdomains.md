@@ -491,4 +491,4 @@ echo "10.10.10.10  admin.target.htb" | sudo tee -a /etc/hosts
 
 ---
 
-*Part of MethodMan. English only by design. Last updated: 2026-10-10.*
+*Part of Bugterium. English only by design. Last updated: 2026-10-10.*

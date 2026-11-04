@@ -1,4 +1,4 @@
-﻿# MethodMan
+﻿# Bugterium
 
 [![Validate](https://github.com/N3xu666/MethodMan/actions/workflows/validate.yml/badge.svg?style=flat-square)](https://github.com/N3xu666/MethodMan/actions/workflows/validate.yml)
 [![Last commit](https://img.shields.io/github/last-commit/N3xu666/MethodMan?style=flat-square&label=last&v=4)](https://github.com/N3xu666/MethodMan/commits/main)
@@ -6,7 +6,7 @@
 [![Docs: CC BY-NC 4.0](https://img.shields.io/badge/Docs-CC%20BY--NC%204.0-lightgrey.svg?style=flat-square)](https://creativecommons.org/licenses/by-nc/4.0/)
 [![Code: MIT](https://img.shields.io/badge/Code-MIT-blue.svg?style=flat-square)](https://opensource.org/licenses/MIT)
 
-![MethodMan - trilingual HTB writeups, web application security reference, methodology and tools](./social-preview.png)
+![Bugterium - trilingual HTB writeups, web application security reference, methodology and tools](./social-preview.png)
 
 New HTB machines are added as they are completed (retired only - see the stub scheme below for active machines). Reference material grows in parallel: the Application Security Reference (`APPLICATIONS/`), the Infrastructure Security Reference (`INFRASTRUCTURE/`), the AI Security Reference (`AI/`), the Anonymity, Privacy and OpSec Reference (`ANONYMITY-PRIVACY-OPSEC/`), the Network Security Reference (`NETWORKS/`), the Cloud Security Reference (`CLOUD/`), the Virtualization Security Reference (`VIRTUALIZATION/`), the Open-Source Intelligence Reference (`OSINT/`), the Information Security Management Reference (`INFORMATION_SECURITY/`), methodology notes, cheatsheets, and custom tooling (`tools/`).
 
@@ -22,7 +22,7 @@ Writeups available in Az/En/Ru. Currently: **24 published (retired) + 7 active s
 ## Structure
 
 ```
-MethodMan/
+Bugterium/
 |
 +-- WRITEUPS/                                   # HTB walkthroughs, trilingual (Az, En, Ru)
 |   +-- 01 Hack The Box/

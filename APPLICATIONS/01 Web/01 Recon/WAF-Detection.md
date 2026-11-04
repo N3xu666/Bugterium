@@ -350,4 +350,4 @@ sqlmap -u "http://target/?id=1" --batch --tamper=space2comment,randomcase,charen
 
 ---
 
-*Part of MethodMan. English only by design. Last updated: 2026-10-10.*
+*Part of Bugterium. English only by design. Last updated: 2026-10-10.*

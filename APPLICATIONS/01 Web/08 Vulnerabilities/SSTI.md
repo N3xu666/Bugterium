@@ -802,6 +802,6 @@ Polyglot:         ${{<%[%'"}}%\
 
 ---
 
-*Part of MethodMan. English only by design. Last updated: 2026-10-14.*
+*Part of Bugterium. English only by design. Last updated: 2026-10-14.*
 
 > See also: [../01 Recon/WAF-Detection.md](../01%20Recon/WAF-Detection.md), [Command-Injection.md](./Command-Injection.md)

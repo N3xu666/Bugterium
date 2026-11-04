@@ -313,4 +313,4 @@ Standard web-testing workflow. Adjust per target profile
 
 ---
 
-*Last updated: 2026-10-10. Part of MethodMan. English only by design.*
+*Last updated: 2026-10-10. Part of Bugterium. English only by design.*

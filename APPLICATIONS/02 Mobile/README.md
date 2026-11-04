@@ -141,4 +141,4 @@ Artifact received (APK / IPA)
 
 ---
 
-*Last updated: 2026-10-24. Part of MethodMan. English only by design.*
+*Last updated: 2026-10-24. Part of Bugterium. English only by design.*

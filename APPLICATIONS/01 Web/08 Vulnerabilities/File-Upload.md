@@ -410,4 +410,4 @@ Magic bytes: JPEG=FFD8FFE0  PNG=89504E47  GIF=47494638 (GIF89a)  PDF=25504446 (%
 
 ---
 
-*Part of MethodMan. English only by design. Last updated: 2026-10-11.*
+*Part of Bugterium. English only by design. Last updated: 2026-10-11.*

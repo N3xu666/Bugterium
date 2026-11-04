@@ -1,5 +1,5 @@
 ﻿# ============================================================
-# FINAL AUDIT v3 - MethodMan
+# FINAL AUDIT v3 - Bugterium
 # ============================================================
 # Changes vs v2:
 #   - No hardcoded "45 walkthroughs" - counts dynamically.
@@ -77,7 +77,7 @@ function Invoke-GitSafe {
 
 Write-Host ""
 Write-Host "================================================================" -ForegroundColor Cyan
-Write-Host "     FINAL AUDIT v3 - MethodMan" -ForegroundColor Cyan
+Write-Host "     FINAL AUDIT v3 - Bugterium" -ForegroundColor Cyan
 Write-Host "     $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')" -ForegroundColor Cyan
 Write-Host "================================================================" -ForegroundColor Cyan
 

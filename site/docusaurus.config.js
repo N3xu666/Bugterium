@@ -4,7 +4,7 @@ import { remarkAlert } from 'remark-github-blockquote-alert';
 
 /** @type {import('@docusaurus/types').Config} */
 const config = {
-  title: 'MethodMan',
+  title: 'Bugterium',
   tagline: 'Trilingual HTB/OSCP walkthroughs, web security reference and pentest tooling',
   favicon: 'img/favicon.svg',
 
@@ -14,7 +14,7 @@ const config = {
   baseUrl: '/',
 
   organizationName: 'N3xu666',
-  projectName: 'MethodMan',
+  projectName: 'Bugterium',
 
   onBrokenLinks: 'warn',
   onBrokenAnchors: 'warn',
@@ -68,9 +68,9 @@ const config = {
     },
     navbar: {
       hideOnScroll: false,
-      title: 'MethodMan',
+      title: 'Bugterium',
       logo: {
-        alt: 'MethodMan',
+        alt: 'Bugterium',
         src: 'img/logo.svg',
       },
       items: [
@@ -82,7 +82,7 @@ const config = {
     footer: {
       style: 'dark',
       links: [],
-      copyright: `MethodMan - CC BY-NC 4.0 | Built with Docusaurus`,
+      copyright: `Bugterium - CC BY-NC 4.0 | Built with Docusaurus`,
     },
     prism: {
       theme: prismThemes.github,

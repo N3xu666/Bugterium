@@ -41,7 +41,7 @@ The `01 Web/` category covers the browser-facing layer: HTML forms, cookies, CSR
 
 ---
 
-*Last updated: 2026-10-24. Part of MethodMan. English only by design.*
+*Last updated: 2026-10-24. Part of Bugterium. English only by design.*
 
 Overlap exists in the underlying primitives (injection, authn, authz) but the detection and exploitation techniques are different enough to warrant a separate track. Cross-references point to `01 Web/` where the primitive is the same.
 

@@ -1,4 +1,4 @@
-title = "MethodMan gitleaks config"
+title = "Bugterium gitleaks config"
 
 [extend]
 useDefault = true

@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "methodman-session-report"
 version = "0.6.0"
-description = "Linux terminal session recorder that produces a MethodMan walkthrough draft"
+description = "Linux terminal session recorder that produces a Bugterium walkthrough draft"
 readme = "README.md"
 requires-python = ">=3.9"
 license = { text = "MIT" }

@@ -1,6 +1,6 @@
 ﻿# Tools
 
-Custom penetration testing tools used across the MethodMan walkthroughs,
+Custom penetration testing tools used across the Bugterium walkthroughs,
 methodologies, and OSCP preparation. Written in **Python**, **Go**, and **Bash**.
 
 These are **not** replacements for established tools (nmap, feroxbuster,

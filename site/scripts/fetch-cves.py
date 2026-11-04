@@ -7,7 +7,7 @@ import datetime
 NVD_API_KEY = os.environ.get('NVD_API_KEY', '')
 
 def fetch_json(url, headers=None):
-    req_headers = {'User-Agent': 'MethodMan-CVE-Fetcher/1.0'}
+    req_headers = {'User-Agent': 'Bugterium-CVE-Fetcher/1.0'}
     if headers:
         req_headers.update(headers)
     req = urllib.request.Request(url, headers=req_headers)

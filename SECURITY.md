@@ -2,7 +2,7 @@
 
 ## About This Repository
 
-MethodMan is a personal collection of penetration testing walkthroughs, tools,
+Bugterium is a personal collection of penetration testing walkthroughs, tools,
 methodologies, and cheatsheets, published as a portfolio and community resource.
 
 All published walkthroughs are **fully masked**: flags, passwords, hashes, tokens,
@@ -33,7 +33,7 @@ If you find a security issue in this repository, please report it **privately**:
    - Go to the **Security** tab -> **Report a vulnerability**
    - https://github.com/N3xu666/MethodMan/security/advisories/new
 2. **Email:** huseynovirshad@gmail.com
-   - Subject: `[MethodMan Security] <short description>`
+   - Subject: `[Bugterium Security] <short description>`
 
 **Do NOT open a public GitHub issue for security problems.**
 

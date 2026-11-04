@@ -126,10 +126,10 @@ def walk():
         elif n["parent"] is None:
             links.append({"source": n["id"], "target": "_home"})
     roots = [t for t in ("writeups", "reference") if t in tree]
-    home = {"id": "_home", "label": "MethodMan", "depth": -1,
+    home = {"id": "_home", "label": "Bugterium", "depth": -1,
             "parent": None, "top": None, "url": "/", "is_index": True,
             "children": list(roots)}
-    nodes.append({"id": "_home", "label": "MethodMan", "depth": -1,
+    nodes.append({"id": "_home", "label": "Bugterium", "depth": -1,
                   "parent": None, "ancestors": [], "url": "/",
                   "file": "", "top": None, "is_index": True, "slug": "home"})
     tree["_home"] = home

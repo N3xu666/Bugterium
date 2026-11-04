@@ -366,4 +366,4 @@ ffuf -u 'http://target/api/user/FUZZ' -w ids.txt -H 'Cookie: session=USER' -mc 2
 
 ---
 
-*Part of MethodMan. English only by design. Last updated: 2026-10-11.*
+*Part of Bugterium. English only by design. Last updated: 2026-10-11.*

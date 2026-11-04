@@ -181,7 +181,7 @@ const getNodeObject = (node) => {
 };
 
 const getNodeLabel = (node) => {
-  if (node.id === HOME) return 'MethodMan';
+  if (node.id === HOME) return 'Bugterium';
   return node.label || node.id;
 };
 
@@ -380,7 +380,7 @@ export default function NeuralGraph({ onReady }) {
 
   const crumbs = useMemo(() => {
     if (!graph || !graph.hierarchy) return [];
-    const list = [{ id: HOME, label: 'MethodMan' }];
+    const list = [{ id: HOME, label: 'Bugterium' }];
     if (!focus) return list;
     if (focus.startsWith('tool:') || focus.startsWith('cve:')) {
       const n = graph.brain.nodes.find((x) => x.id === focus);

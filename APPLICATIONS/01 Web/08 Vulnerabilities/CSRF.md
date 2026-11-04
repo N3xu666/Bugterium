@@ -262,4 +262,4 @@ fetch('http://target/api/action', {
 
 ---
 
-*Part of MethodMan. English only by design. Last updated: 2026-10-11.*
+*Part of Bugterium. English only by design. Last updated: 2026-10-11.*
