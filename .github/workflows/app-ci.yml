@@ -35,7 +35,7 @@ jobs:
         with:
           python-version: "3.12"
       - name: Install Semgrep
-        run: pip install semgrep==1.99.0
+        run: pip install "setuptools<82" semgrep==1.99.0
       - name: Run Semgrep
         run: |
           semgrep ci \
@@ -69,8 +69,8 @@ jobs:
 
   dast:
     name: DAST (ZAP baseline, advisory)
+    if: false  # TODO: enable after Phase A4 (app.bugterium.pages.dev live)
     runs-on: ubuntu-latest
-    continue-on-error: true
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
