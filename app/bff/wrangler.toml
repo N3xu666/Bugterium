@@ -2,6 +2,7 @@
 # Docs: https://developers.cloudflare.com/workers/wrangler/configuration/
 
 name = "bugterium-bff"
+account_id = "163ba2bb74c1185d6207bdcb86ea6b93"
 main = "src/index.ts"
 compatibility_date = "2026-11-04"
 workers_dev = true
