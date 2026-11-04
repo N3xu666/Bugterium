@@ -158,7 +158,7 @@
         StaleRefs = @('02 Web', '01 HTB', 'OSCP-grade')
 
         # Doc-level exclude names (link check [10/23], stale check [14/23]).
-        DocExcludeNames = @('ROADMAP.md', 'MASTER_WORKFLOW.md', '_SITE_PLAN.md', 'PROMPT_NEXT_SESSION.txt', 'SESSION_CLOSING_PROTOCOL.md')
+        DocExcludeNames = @('ROADMAP.md', 'MASTER_WORKFLOW.md', '_SITE_PLAN.md', 'PROMPT_NEXT_SESSION.txt', 'SESSION_CLOSING_PROTOCOL.md', 'APP_WORKFLOW.md')
 
         # Language counter marker: U+00D7 MULTIPLICATION SIGN.
         # Written as an escape so this PSD1 stays ASCII-safe (lesson 164).

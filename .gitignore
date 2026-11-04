@@ -19,6 +19,7 @@ desktop.ini
 
 # Internal workflow (not for public)
 MASTER_WORKFLOW.md
+APP_WORKFLOW.md
 update-readmes.ps1
 _SITE_PLAN.md
 
@@ -53,6 +54,13 @@ site/node_modules/
 site/dist/
 site/.docusaurus/
 site-poc/
+
+# App (Secure App MVP - Phase B)
+app/frontend/node_modules/
+app/frontend/dist/
+app/frontend/.vite/
+app/bff/node_modules/
+app/db/node_modules/
 
 # Wrangler local cache
 .wrangler/
