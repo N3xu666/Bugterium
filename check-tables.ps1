@@ -25,7 +25,7 @@ $files = Get-ChildItem -Path $repo -Recurse -Filter *.md -ErrorAction SilentlyCo
     Where-Object {
         $_.FullName -notmatch "\\\.git\\" -and
         $_.FullName -notmatch "\\txt\\" -and
-        $_.FullName -notmatch "\\tests\\" -and $_.FullName -notmatch "\\terraform\\" -and $_.FullName -notmatch "\\site\\" -and
+        $_.FullName -notmatch "\\tests\\" -and $_.FullName -notmatch "\\terraform\\" -and $_.FullName -notmatch "\\site\\" -and $_.FullName -notmatch "\\node_modules\\" -and
         $_.Name -notin $excludeNames
     }
 
