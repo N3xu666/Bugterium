@@ -68,3 +68,10 @@ audit-session.ps1
 # Closing Protocol
 SESSION_CLOSING_PROTOCOL.md
 _WORKFLOW.md*
+
+# Local secrets (never commit)
+.dev.vars
+.dev.vars.*
+.env
+.env.*
+!.env.example
