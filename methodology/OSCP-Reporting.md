@@ -17,7 +17,7 @@ and how it maps to the walkthroughs in this repository.
 - [3. Screenshot Rules](#3-screenshot-rules)
 - [4. Report Structure](#4-report-structure)
 - [5. Common Mistakes](#5-common-mistakes)
-- [6. How This Maps to MethodMan Walkthroughs](#6-how-this-maps-to-methodman-walkthroughs)
+- [6. How This Maps to Bugterium Walkthroughs](#6-how-this-maps-to-bugterium-walkthroughs)
 
 ---
 
@@ -92,7 +92,7 @@ Do NOT pad the report. Quality beats volume.
 
 ---
 
-## 6. How This Maps to MethodMan Walkthroughs
+## 6. How This Maps to Bugterium Walkthroughs
 
 Walkthroughs in `WRITEUPS/01 Hack The Box/02 OSCP/` carry an OSCP reporting note:
 

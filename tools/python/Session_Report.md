@@ -1,7 +1,7 @@
 ﻿# Session_Report.py
 
 > Linux-only terminal session recorder that produces a Bugterium walkthrough
-> draft in the section 3.2 format. Records in a clean `bash` subshell by
+> draft in the canonical walkthrough format. Records in a clean `bash` subshell by
 > default, so the transcript is readable regardless of your own shell config.
 
 ---
@@ -14,7 +14,7 @@ per-session directory together with the raw transcript and a metadata file.
 
 Use case: during a pentest or CTF session, run the recorder once at the
 start, work normally in the subshell, exit when done. The result is a
-`walkthrough-draft.md` with the MethodMan section 3.2 skeleton, ready to be
+`walkthrough-draft.md` with the canonical walkthrough standard skeleton, ready to be
 finished by hand (or by an AI assistant) into a full writeup.
 
 ---
@@ -159,7 +159,7 @@ sessions/
 +-- <machine>-<UTC timestamp>/
     +-- metadata.json          # machine, target, started, host, operator, language, shell
     +-- raw.txt                # raw script(1) output
-    +-- walkthrough-draft.md   # cleaned draft in MethodMan section 3.2 format
+    +-- walkthrough-draft.md   # cleaned draft in the canonical walkthrough format
 ```
 
 `raw.txt` is kept for reference. The `.md` draft is the cleaned version with
@@ -167,7 +167,7 @@ the AI prompt block, the walkthrough skeleton, and the raw transcript
 appended under `## Raw Transcript`.
 
 **Note:** `sessions/` is listed in `.gitignore`. Drafts are local-only until
-you decide to publish them (after masking, per section 3).
+you decide to publish them (after masking sensitive values).
 
 ---
 
