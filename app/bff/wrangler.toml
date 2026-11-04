@@ -13,7 +13,7 @@ binding = "ASSETS"
 run_worker_first = ["/api/*", "/auth/*"]
 
 [vars]
-ENVIRONMENT = "development"
+ENVIRONMENT = "production"
 COOKIE_NAME = "bugterium_session"
 # Укажи здесь свой GitHub ID (число) через запятую, чтобы стать админом.
 # Узнать ID можно тут: https://api.github.com/users/ТВОЙ_НИКНЕЙМ
