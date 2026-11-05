@@ -26,7 +26,7 @@ If you only want the tool and not the whole repository:
 ```bash
 mkdir -p ~/tools && cd ~/tools
 curl -fsSL -o Session_Report.py \
-  https://raw.githubusercontent.com/N3xu666/MethodMan/main/tools/python/Session_Report.py
+  https://raw.githubusercontent.com/N3xu666/Bugterium/main/tools/python/Session_Report.py
 python3 Session_Report.py --version
 ```
 
@@ -37,7 +37,7 @@ To also fetch the documentation:
 
 ```bash
 curl -fsSL -o Session_Report.md \
-  https://raw.githubusercontent.com/N3xu666/MethodMan/main/tools/python/Session_Report.md
+  https://raw.githubusercontent.com/N3xu666/Bugterium/main/tools/python/Session_Report.md
 ```
 
 ### Install as a Python package (optional)
@@ -48,9 +48,9 @@ Debian/Ubuntu/Kali where PEP 668 blocks system-wide installs) a virtual
 environment.
 
 ```bash
-python3 -m venv ~/.venvs/methodman
-source ~/.venvs/methodman/bin/activate
-pip install "git+https://github.com/N3xu666/MethodMan.git#subdirectory=tools/python"
+python3 -m venv ~/.venvs/bugterium
+source ~/.venvs/bugterium/bin/activate
+pip install "git+https://github.com/N3xu666/Bugterium.git#subdirectory=tools/python"
 session-report --version
 ```
 

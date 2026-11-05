@@ -10,7 +10,7 @@ const config = {
 
   future: { v4: true },
 
-  url: 'https://methodman.pages.dev',
+  url: 'https://bugterium.pages.dev',
   baseUrl: '/',
 
   organizationName: 'N3xu666',
@@ -76,7 +76,7 @@ const config = {
       items: [
         { to: '/writeups', label: 'Writeups', position: 'left', exact: false },
         { to: '/reference', label: 'Reference', position: 'left', exact: false },
-        { href: 'https://github.com/N3xu666/MethodMan', label: 'GitHub', position: 'right' },
+        { href: 'https://github.com/N3xu666/Bugterium', label: 'GitHub', position: 'right' },
       ],
     },
     footer: {

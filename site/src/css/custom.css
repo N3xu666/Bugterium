@@ -763,7 +763,7 @@ button[class*='toggleButton'] svg {
 /* === FIX BRAND PREFIX & STATUS COLORS === */
 /* ??????? ???? */
 [data-theme='light'] .brand-prefix {
-  color: var(--mm-text) !important; /* ?????? METHODMAN */
+  color: var(--mm-text) !important; /* ?????? BUGTERIUM */
 }
 [data-theme='light'] .status {
   color: var(--mm-text) !important; /* ?????? ??????? */
@@ -771,7 +771,7 @@ button[class*='toggleButton'] svg {
 
 /* ?????? ???? */
 [data-theme='dark'] .brand-prefix {
-  color: var(--mm-text-dim) !important; /* ????? METHODMAN */
+  color: var(--mm-text-dim) !important; /* ????? BUGTERIUM */
 }
 [data-theme='dark'] .status {
   color: var(--mm-text-dim) !important; /* ????? ??????? */
@@ -793,7 +793,7 @@ button[class*='toggleButton'] svg {
 }
 
 
-/* === LIGHT THEME: METHODMAN HOVER WINE RED === */
+/* === LIGHT THEME: BUGTERIUM HOVER WINE RED === */
 [data-theme='light'] .navbar__brand:hover .brand-prefix,
 [data-theme='light'] .navbar__brand:hover .navbar__title {
   color: #c00030 !important;
@@ -828,7 +828,7 @@ button[class*='toggleButton'] svg {
 }
 
 
-/* === DARK THEME: METHODMAN HOVER WINE RED === */
+/* === DARK THEME: BUGTERIUM HOVER WINE RED === */
 [data-theme='dark'] .navbar__brand:hover,
 [data-theme='dark'] .navbar__brand:hover .brand-prefix,
 [data-theme='dark'] .navbar__brand:hover .navbar__title {

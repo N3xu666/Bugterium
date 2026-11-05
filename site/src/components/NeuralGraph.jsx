@@ -406,7 +406,7 @@ export default function NeuralGraph({ onReady }) {
   return (
     <div className="app">
       <header className="hud">
-        <span className="brand"><span className="brand-prefix">METHODMAN</span><span className="sep">/</span> NEURAL PORT</span>
+        <span className="brand"><span className="brand-prefix">BUGTERIUM</span><span className="sep">/</span> NEURAL PORT</span>
         <nav className="crumbs">
           {crumbs.map((c, i) => {
             const isRoot = c.id === HOME;

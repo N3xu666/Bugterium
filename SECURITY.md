@@ -31,7 +31,7 @@ If you find a security issue in this repository, please report it **privately**:
 
 1. **Preferred:** GitHub Private Vulnerability Reporting
    - Go to the **Security** tab -> **Report a vulnerability**
-   - https://github.com/N3xu666/MethodMan/security/advisories/new
+   - https://github.com/N3xu666/Bugterium/security/advisories/new
 2. **Email:** huseynovirshad@gmail.com
    - Subject: `[Bugterium Security] <short description>`
 

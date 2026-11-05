@@ -22,7 +22,7 @@ $repo = Split-Path $PSScriptRoot -Parent
 $fixtures = Join-Path $PSScriptRoot "fixtures"
 
 # --- Setup: temp dir ---
-$tmp = Join-Path $env:TEMP "methodman-tests-$(Get-Random)"
+$tmp = Join-Path $env:TEMP "bugterium-tests-$(Get-Random)"
 New-Item -Path $tmp -ItemType Directory -Force | Out-Null
 
 $pass = 0
@@ -132,7 +132,7 @@ try {
     # --- Test 4: check.ps1 detects dict leak (positive) ---
     Write-Section "Test 4: check.ps1 detects a dict leak"
 
-    $tmpLeak = Join-Path $env:TEMP "methodman-check-leak-$(Get-Random)"
+    $tmpLeak = Join-Path $env:TEMP "bugterium-check-leak-$(Get-Random)"
     New-Item -Path $tmpLeak -ItemType Directory -Force | Out-Null
 
     Copy-Item (Join-Path $repo "check.ps1") (Join-Path $tmpLeak "check.ps1") -Force
@@ -160,7 +160,7 @@ try {
     # --- Test 5: check.ps1 passes on clean file (negative) ---
     Write-Section "Test 5: check.ps1 passes on a clean file"
 
-    $tmpClean = Join-Path $env:TEMP "methodman-check-clean-$(Get-Random)"
+    $tmpClean = Join-Path $env:TEMP "bugterium-check-clean-$(Get-Random)"
     New-Item -Path $tmpClean -ItemType Directory -Force | Out-Null
 
     Copy-Item (Join-Path $repo "check.ps1") (Join-Path $tmpClean "check.ps1") -Force

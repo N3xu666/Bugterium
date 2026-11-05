@@ -1,8 +1,8 @@
 ﻿# Bugterium
 
-[![Validate](https://github.com/N3xu666/MethodMan/actions/workflows/validate.yml/badge.svg?style=flat-square)](https://github.com/N3xu666/MethodMan/actions/workflows/validate.yml)
-[![Last commit](https://img.shields.io/github/last-commit/N3xu666/MethodMan?style=flat-square&label=last&v=4)](https://github.com/N3xu666/MethodMan/commits/main)
-[![Repo size](https://img.shields.io/github/repo-size/N3xu666/MethodMan?style=flat-square&label=repo&v=5)](https://github.com/N3xu666/MethodMan)
+[![Validate](https://github.com/N3xu666/Bugterium/actions/workflows/validate.yml/badge.svg?style=flat-square)](https://github.com/N3xu666/Bugterium/actions/workflows/validate.yml)
+[![Last commit](https://img.shields.io/github/last-commit/N3xu666/Bugterium?style=flat-square&label=last&v=4)](https://github.com/N3xu666/Bugterium/commits/main)
+[![Repo size](https://img.shields.io/github/repo-size/N3xu666/Bugterium?style=flat-square&label=repo&v=5)](https://github.com/N3xu666/Bugterium)
 [![Docs: CC BY-NC 4.0](https://img.shields.io/badge/Docs-CC%20BY--NC%204.0-lightgrey.svg?style=flat-square)](https://creativecommons.org/licenses/by-nc/4.0/)
 [![Code: MIT](https://img.shields.io/badge/Code-MIT-blue.svg?style=flat-square)](https://opensource.org/licenses/MIT)
 

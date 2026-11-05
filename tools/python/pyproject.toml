@@ -34,9 +34,9 @@ classifiers = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/N3xu666/MethodMan"
-Repository = "https://github.com/N3xu666/MethodMan"
-Issues = "https://github.com/N3xu666/MethodMan/issues"
+Homepage = "https://github.com/N3xu666/Bugterium"
+Repository = "https://github.com/N3xu666/Bugterium"
+Issues = "https://github.com/N3xu666/Bugterium/issues"
 
 [project.scripts]
 session-report = "Session_Report:main"
