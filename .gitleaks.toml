@@ -85,6 +85,7 @@ paths = [
 ]
 [[allowlists]]
 description = "Ignore Cloudflare Account ID in wrangler config"
+condition = "AND"
 paths = [
   '''app/bff/wrangler\.toml'''
 ]
