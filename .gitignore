@@ -1,4 +1,4 @@
-# Masking dictionary (contains real secrets)
+﻿# Masking dictionary (contains real secrets)
 masking-dict.ps1
 masking-check.ps1
 
@@ -86,3 +86,8 @@ _WORKFLOW.md*
 
 # Internal Roadmap (Local only)
 ROADMAP.md
+
+# Terraform variables (Lesson 299)
+terraform/*.tfvars
+terraform/*.tfvars.json
+*.auto.tfvars
