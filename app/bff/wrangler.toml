@@ -26,3 +26,10 @@ database_id = "c4510ea0-edeb-49a2-85c3-52989c46539c"
 
 [triggers]
 crons = ["0 3 * * *"]
+
+[observability]
+enabled = true
+
+[observability.traces]
+enabled = true
+head_sampling_rate = 1
