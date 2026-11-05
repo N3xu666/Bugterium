@@ -27,11 +27,18 @@ jobs:
         run: python site/scripts/fetch-cves.py
 
       - name: Create Pull Request
+        id: cpr
         uses: peter-evans/create-pull-request@c5a7806660adbe173f04e3e038b0ccdcd758773c
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.PAT_TOKEN }}
           commit-message: "chore(site): auto-update live threats feed"
           title: "Auto-update Live Threats Feed"
           body: "Automated CVE feed update. Please review and merge."
           branch: auto-update-feed
           delete-branch: true
+
+      - name: Enable Auto-Merge
+        if: steps.cpr.outputs.pull-request-operation == 'created'
+        run: gh pr merge --auto --squash "${{ steps.cpr.outputs.pull-request-number }}"
+        env:
+          GH_TOKEN: ${{ secrets.PAT_TOKEN }}
