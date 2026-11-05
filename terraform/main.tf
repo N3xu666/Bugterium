@@ -27,7 +27,22 @@ resource "cloudflare_pages_project" "methodman" {
   }
 }
 
-output "pages_url" {
+resource "cloudflare_pages_project" "bugterium" {
+  account_id        = var.cloudflare_account_id
+  name              = "bugterium"
+  production_branch = "main"
+
+  lifecycle {
+    prevent_destroy = true
+  }
+}
+
+output "pages_url_methodman" {
   value       = "https://${cloudflare_pages_project.methodman.subdomain}"
-  description = "Production URL"
+  description = "Legacy Production URL"
+}
+
+output "pages_url" {
+  value       = "https://${cloudflare_pages_project.bugterium.subdomain}"
+  description = "Current Production URL"
 }
