@@ -24,9 +24,7 @@ oauth.get('/github', loginRateLimit, async (c) => {
     sameSite: 'Lax',
   });
 
-  const redirectUri = c.env.ENVIRONMENT === 'production'
-    ? 'https://bugterium-bff.YOUR_SUBDOMAIN.workers.dev/auth/github/callback'
-    : 'http://localhost:8787/auth/github/callback';
+  const redirectUri = new URL('/auth/github/callback', c.req.url).toString();
 
   const url = new URL('https://github.com/login/oauth/authorize');
   url.searchParams.set('client_id', c.env.GITHUB_CLIENT_ID);
@@ -55,9 +53,7 @@ oauth.get('/github/callback', async (c) => {
 
   if (!stateRecord) throw new AppError('invalid_state', 400, 'State expired or not found');
 
-  const redirectUri = c.env.ENVIRONMENT === 'production'
-    ? 'https://bugterium-bff.YOUR_SUBDOMAIN.workers.dev/auth/github/callback'
-    : 'http://localhost:8787/auth/github/callback';
+  const redirectUri = new URL('/auth/github/callback', c.req.url).toString();
 
   const tokenRes = await fetch('https://github.com/login/oauth/access_token', {
     method: 'POST',
