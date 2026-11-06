@@ -1642,10 +1642,13 @@ button[class*='copyButton'] svg {
   border-bottom: 1px solid #c00030 !important;
 }
 
-/* 2. CVE links ONLY: Orange hover (matches nvd.nist.gov, cve.org, etc.) */
-.markdown a[href*="nvd.nist.gov"]:hover,
-.markdown a[href*="cve.org"]:hover,
-.markdown a[href*="cve.mitre.org"]:hover {
+/* CVE links ONLY: Orange hover for BOTH themes */
+[data-theme='light'] .markdown a[href*="nvd.nist.gov"]:hover,
+[data-theme='light'] .markdown a[href*="cve.org"]:hover,
+[data-theme='light'] .markdown a[href*="cve.mitre.org"]:hover,
+[data-theme='dark'] .markdown a[href*="nvd.nist.gov"]:hover,
+[data-theme='dark'] .markdown a[href*="cve.org"]:hover,
+[data-theme='dark'] .markdown a[href*="cve.mitre.org"]:hover {
   color: #ff8800 !important;
   border-bottom: 1px solid #ff8800 !important;
 }
