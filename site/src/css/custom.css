@@ -1630,3 +1630,22 @@ button[class*='copyButton'] svg {
   color: #ff8800 !important;
   border-bottom: 1px solid #ff8800 !important;
 }
+/* 1. ALL links: Wine Red hover, transparent background */
+.markdown a:hover,
+.markdown p a:hover,
+.markdown li a:hover,
+[data-theme='light'] .markdown a:hover,
+[data-theme='light'] .markdown p a:hover {
+  background: transparent !important;
+  background-color: transparent !important;
+  color: #c00030 !important;
+  border-bottom: 1px solid #c00030 !important;
+}
+
+/* 2. CVE links ONLY: Orange hover (matches nvd.nist.gov, cve.org, etc.) */
+.markdown a[href*="nvd.nist.gov"]:hover,
+.markdown a[href*="cve.org"]:hover,
+.markdown a[href*="cve.mitre.org"]:hover {
+  color: #ff8800 !important;
+  border-bottom: 1px solid #ff8800 !important;
+}
