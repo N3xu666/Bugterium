@@ -1,4 +1,4 @@
-@font-face {
+﻿@font-face {
   font-family: 'JetBrains Mono';
   font-style: normal;
   font-weight: 400;
@@ -1600,4 +1600,33 @@ button[class*='copyButton'] svg {
 [data-theme='light'] .markdown-alert-note .markdown-alert-title svg path {
   fill: #0055ff !important;
   color: #0055ff !important;
+}
+/* Light Theme Meta-block (blockquote) fix */
+[data-theme='light'] .markdown blockquote {
+  background: #f4f4f4 !important;
+  border-left: 2px solid #c00030 !important;
+}
+/* Inline Code - Wine Red on both themes */
+.markdown :not(pre) > code {
+  color: #c00030 !important;
+}
+/* Content Links - Orange (Both Themes) */
+.markdown a {
+  color: #ff8800 !important;
+  border-bottom-color: rgba(255, 136, 0, 0.3) !important;
+}
+.markdown a:hover {
+  color: #ffaa33 !important;
+  border-bottom-color: #ff8800 !important;
+}
+/* Reverse-engineered Link Hover Fix (Both Themes) */
+.markdown a:hover,
+.markdown p a:hover,
+.markdown li a:hover,
+[data-theme='light'] .markdown a:hover,
+[data-theme='light'] .markdown p a:hover {
+  background: transparent !important;
+  background-color: transparent !important;
+  color: #ff8800 !important;
+  border-bottom: 1px solid #ff8800 !important;
 }
