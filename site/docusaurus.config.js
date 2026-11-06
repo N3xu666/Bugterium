@@ -1,4 +1,4 @@
-﻿// @ts-check
+// @ts-check
 import {themes as prismThemes} from 'prism-react-renderer';
 import { remarkAlert } from 'remark-github-blockquote-alert';
 
@@ -76,6 +76,7 @@ const config = {
       items: [
         { to: '/writeups', label: 'Writeups', position: 'left', exact: false },
         { to: '/reference', label: 'Reference', position: 'left', exact: false },
+        { to: '/monitor', label: 'Security Monitor', position: 'left', exact: false },
         { href: 'https://github.com/N3xu666/Bugterium', label: 'GitHub', position: 'right' },
       ],
     },
