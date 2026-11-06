@@ -1652,3 +1652,11 @@ button[class*='copyButton'] svg {
   color: #ff8800 !important;
   border-bottom: 1px solid #ff8800 !important;
 }
+/* Fix LIVE THREATS line color on light theme (override #1a1a1a) */
+[data-theme='light'] [class*='threatsHeader'] {
+  border-bottom-color: #d1d5db !important;
+}
+/* Align LIVE THREATS line with CVE cards (account for scrollbar) */
+[class*='threatsHeader'] {
+  margin-right: 4px !important;
+}
