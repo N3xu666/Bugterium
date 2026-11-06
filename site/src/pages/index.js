@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import Layout from '@theme/Layout';
 import BrowserOnly from '@docusaurus/BrowserOnly';
 import Link from '@docusaurus/Link';
@@ -46,6 +46,10 @@ export default function Home() {
       <div className={styles.layout}>
 
         <div className={styles.leftCol}>
+          <Link to="/monitor" className={styles.card}>
+            <div className={styles.cardLabel}>SECURITY MONITOR</div>
+            <div className={styles.cardDesc}>Real-time isolated edge threat intelligence, WAF stats, and live attack map.</div>
+          </Link>
           <Link to="/reference" className={styles.card}>
             <div className={styles.cardLabel}>REFERENCE</div>
             <div className={styles.cardDesc}>Applications / AI / Cloud / Infrastructure / Networks / Virtualization / Information Security / OSINT / Anonymity & OpSec</div>

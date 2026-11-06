@@ -26,8 +26,9 @@
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "react-force-graph-3d": "^1.29.2",
+    "react-globe.gl": "^2.38.0",
     "remark-github-blockquote-alert": "^2.1.0",
-    "three": "0.182.0"
+    "three": "^0.182.0"
   },
   "devDependencies": {
     "@docusaurus/module-type-aliases": "3.10.2",

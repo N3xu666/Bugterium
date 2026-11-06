@@ -91,3 +91,6 @@ ROADMAP.md
 terraform/*.tfvars
 terraform/*.tfvars.json
 *.auto.tfvars
+
+# Security Monitor Session Log
+SESSION_LOG_SECURITY_MONITOR.md

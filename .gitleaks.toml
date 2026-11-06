@@ -87,9 +87,20 @@ paths = [
 description = "Ignore Cloudflare Account ID in wrangler config"
 condition = "AND"
 paths = [
-  '''app/bff/wrangler\.toml'''
+  '''app/bff/wrangler\.toml''',
+  '''app/security-monitor/wrangler\.toml'''
 ]
-regexTarget = "match"
+regexTarget = "line"
 regexes = [
   '''account_id\s*=\s*"[0-9a-f]{32}"'''
+]
+[[allowlists]]
+description = "Ignore CF_ACCOUNT_ID in security-monitor wrangler config"
+targetRules = ["htb-32hex-flag"]
+paths = [
+  '''app/security-monitor/wrangler\.toml'''
+]
+regexTarget = "line"
+regexes = [
+  '''CF_ACCOUNT_ID\s*=\s*"[0-9a-f]{32}"'''
 ]
