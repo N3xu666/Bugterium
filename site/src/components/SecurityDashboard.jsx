@@ -1,6 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense, lazy } from 'react';
+import BrowserOnly from '@docusaurus/BrowserOnly';
 import styles from './SecurityDashboard.module.css';
-import SecurityGlobe from './SecurityGlobe';
+
+// ЛЕНИВАЯ ЗАГРУЗКА: Webpack вынесет globe в отдельный чанк, который загрузится только в браузере
+const SecurityGlobe = lazy(() => import('./SecurityGlobe'));
 
 export default function SecurityDashboard() {
   const [data, setData] = useState(null);
@@ -21,7 +24,7 @@ export default function SecurityDashboard() {
     };
 
     fetchData();
-    const interval = setInterval(fetchData, 10000); // Обновление каждые 10 сек
+    const interval = setInterval(fetchData, 10000);
     return () => clearInterval(interval);
   }, []);
 
@@ -40,12 +43,18 @@ export default function SecurityDashboard() {
       </div>
 
       <div className={styles.mainGrid}>
-        {/* Левая часть: Глобус */}
+        {/* Левая часть: Глобус (Обернут в BrowserOnly + Suspense) */}
         <div className={styles.globeSection}>
-          <SecurityGlobe geoData={geo_data} />
+          <BrowserOnly fallback={<div style={{ padding: '50px', textAlign: 'center', color: 'var(--ifm-color-emphasis-600)' }}>Loading Environment...</div>}>
+            {() => (
+              <Suspense fallback={<div style={{ padding: '50px', textAlign: 'center', color: 'var(--ifm-color-emphasis-600)' }}>Loading 3D Globe...</div>}>
+                <SecurityGlobe geoData={geo_data} />
+              </Suspense>
+            )}
+          </BrowserOnly>
         </div>
 
-        {/* Правая часть: Метрики и Список стран */}
+        {/* Правая часть: Метрики */}
         <div className={styles.sidebar}>
           <div className={styles.metricsGrid}>
             <div className={styles.card}>
