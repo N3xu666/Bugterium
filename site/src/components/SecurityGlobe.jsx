@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useRef, useState, useMemo } from 'react';
+import React, { useEffect, useRef, useState, useMemo } from 'react';
 import Globe from 'react-globe.gl';
 import * as THREE from 'three';
 import { countryCoords } from './countryCoords';
@@ -10,24 +10,22 @@ export default function SecurityGlobe({ geoData, focusCoords, focusCountry, metr
   const [globeMaterial, setGlobeMaterial] = useState(null);
   const [altitude, setAltitude] = useState(2.5);
 
-  const animFrameRef = useRef();
-  const orbitObjectsRef = useRef([]);
   const timelineObjRef = useRef(null);
 
   useEffect(() => {
     const img = new Image();
     img.src = '/earth_8k.jpg';
-    
+
     img.onload = () => {
       const canvas = document.createElement('canvas');
       canvas.width = img.width;
       canvas.height = img.height;
       const ctx = canvas.getContext('2d');
       ctx.drawImage(img, 0, 0);
-      
+
       const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
       const data = imgData.data;
-      
+
       for (let i = 0; i < data.length; i += 4) {
         const r = data[i], g = data[i+1], b = data[i+2];
         if (b > r * 1.1) {
@@ -56,12 +54,18 @@ export default function SecurityGlobe({ geoData, focusCoords, focusCountry, metr
   const createShield = (metricsData) => {
     const group = new THREE.Group();
     if (!metricsData) return group;
-    const m1 = new THREE.MeshBasicMaterial({ color: 0x00ff00, transparent: true, opacity: metricsData.blocked_429 > 0 ? 0.8 : 0.05, blending: THREE.AdditiveBlending, side: THREE.DoubleSide });
-    const s1 = new THREE.Mesh(new THREE.TorusGeometry(104, 0.6, 3, 64), m1); s1.rotation.x = Math.PI / 2; group.add(s1);
-    const m2 = new THREE.MeshBasicMaterial({ color: 0xff8c00, transparent: true, opacity: metricsData.blocked_403 > 0 ? 0.8 : 0.05, blending: THREE.AdditiveBlending, side: THREE.DoubleSide });
-    const s2 = new THREE.Mesh(new THREE.TorusGeometry(110, 0.6, 3, 64), m2); s2.rotation.x = Math.PI / 2; s2.rotation.y = Math.PI / 3; group.add(s2);
-    const m3 = new THREE.MeshBasicMaterial({ color: 0xff0000, transparent: true, opacity: metricsData.worker_errors_24h > 0 ? 0.8 : 0.05, blending: THREE.AdditiveBlending, side: THREE.DoubleSide });
-    const s3 = new THREE.Mesh(new THREE.TorusGeometry(116, 0.6, 3, 64), m3); s3.rotation.x = Math.PI / 2; s3.rotation.y = -Math.PI / 3; group.add(s3);
+    const createGlow = (color, opacity) => {
+      const mat = new THREE.MeshBasicMaterial({
+        color: color, transparent: true, opacity: opacity,
+        blending: THREE.AdditiveBlending, side: THREE.DoubleSide, depthWrite: false
+      });
+      const mesh = new THREE.Mesh(new THREE.TorusGeometry(120, 0.5, 16, 128), mat);
+      return mesh;
+    };
+
+    const s1 = createGlow(0xffff00, metricsData.blocked_429 > 0 ? 1.0 : 0.1); s1.name = 'glow-429'; s1.rotation.x = Math.PI / 2; s1.rotation.y = -Math.PI / 3; group.add(s1);
+    const s2 = createGlow(0x00ff00, metricsData.worker_errors_24h > 0 ? 1.0 : 0.1); s2.name = 'glow-errors'; s2.rotation.x = Math.PI / 2; s2.rotation.y = Math.PI / 3; group.add(s2);
+    const s3 = createGlow(0xff0000, metricsData.blocked_403 > 0 ? 1.0 : 0.1); s3.name = 'glow-403'; s3.rotation.x = Math.PI / 2; group.add(s3);
     return group;
   };
 
@@ -95,11 +99,17 @@ export default function SecurityGlobe({ geoData, focusCoords, focusCountry, metr
     drawTimelineBars(canvas, timelineData);
     const texture = new THREE.CanvasTexture(canvas);
     texture.wrapS = THREE.RepeatWrapping;
-    const mesh = new THREE.Mesh(
-      new THREE.CylinderGeometry(106, 106, 15, 64, 1, true),
-      new THREE.MeshBasicMaterial({ map: texture, transparent: true, blending: THREE.AdditiveBlending, side: THREE.DoubleSide, depthWrite: false, opacity: 0.9 })
-    );
+    
+    const mat = new THREE.MeshBasicMaterial({ map: texture, transparent: true, blending: THREE.AdditiveBlending, side: THREE.DoubleSide, depthWrite: false, opacity: 0.9 });
+    const mesh = new THREE.Mesh(new THREE.CylinderGeometry(106, 106, 15, 64, 1, true), mat);
+    mesh.position.y = 10;
     spinner.add(mesh);
+
+    const meshMirror = new THREE.Mesh(new THREE.CylinderGeometry(106, 106, 15, 64, 1, true), mat);
+    meshMirror.position.y = -10;
+    meshMirror.scale.y = -1;
+    spinner.add(meshMirror);
+
     outer.userData.canvas = canvas;
     outer.userData.texture = texture;
     outer.userData.spinner = spinner;
@@ -121,63 +131,31 @@ export default function SecurityGlobe({ geoData, focusCoords, focusCountry, metr
   };
 
   const updateObject = (obj, d) => {
-    if (d.type === 'timeline' && obj.userData.spinner && obj.userData.spinner.children[0]) {
-      const time = Date.now() * 0.001;
-      obj.userData.spinner.children[0].material.opacity = 0.6 + Math.sin(time * 4) * 0.3;
-    }
+    // Мигание вынесено в отдельный цикл requestAnimationFrame для плавности
   };
 
-  // --- ОРБИТЫ (3D) ---
+  useEffect(() => {
+    let animId;
+    const animate = () => {
+      if (timelineObjRef.current && timelineObjRef.current.userData.spinner) {
+        const spinner = timelineObjRef.current.userData.spinner;
+        const time = performance.now() * 0.001;
+        const opacity = 0.6 + Math.sin(time * 4) * 0.3;
+        if (spinner.children[0]) spinner.children[0].material.opacity = opacity;
+      }
+      animId = requestAnimationFrame(animate);
+    };
+    animate();
+    return () => cancelAnimationFrame(animId);
+  }, []);
+
   const handleGlobeReady = () => {
     if (!globeEl.current) return;
     const scene = globeEl.current.scene();
     if (!scene) return;
     globeEl.current.controls().autoRotate = true;
     globeEl.current.controls().autoRotateSpeed = 1.5;
-
-    const orbitConfigs = [
-      { r: 130, color: 0x00ffff, tiltX: Math.PI / 4, tiltY: 0, speed: 0.8 },
-      { r: 145, color: 0xa855f7, tiltX: -Math.PI / 3, tiltY: Math.PI / 4, speed: 1.2 },
-      { r: 160, color: 0xff003c, tiltX: Math.PI / 6, tiltY: -Math.PI / 3, speed: 1.5 }
-    ];
-
-    orbitObjectsRef.current = [];
-    orbitConfigs.forEach((cfg) => {
-      const group = new THREE.Group();
-      group.add(new THREE.Mesh(new THREE.TorusGeometry(cfg.r, 0.2, 8, 64), new THREE.MeshBasicMaterial({ color: cfg.color, transparent: true, opacity: 0.3, blending: THREE.AdditiveBlending })));
-      const pMesh = new THREE.Mesh(new THREE.SphereGeometry(1.5, 8, 8), new THREE.MeshBasicMaterial({ color: '#ffffff' }));
-      group.add(pMesh);
-      group.rotation.x = cfg.tiltX;
-      group.rotation.y = cfg.tiltY;
-      
-      group.visible = layers.traffic; // Устанавливаем изначальную видимость
-      
-      scene.add(group);
-      orbitObjectsRef.current.push({ group, pMesh, r: cfg.r, speed: cfg.speed });
-    });
-
-    const animate = () => {
-      const time = Date.now() * 0.001;
-      orbitObjectsRef.current.forEach(o => {
-        o.pMesh.position.x = Math.cos(time * o.speed) * o.r;
-        o.pMesh.position.y = Math.sin(time * o.speed) * o.r;
-      });
-      animFrameRef.current = requestAnimationFrame(animate);
-    };
-    cancelAnimationFrame(animFrameRef.current);
-    animate();
   };
-
-  // Обновляем видимость орбит при изменении состояния
-  useEffect(() => {
-    if (orbitObjectsRef.current) {
-      orbitObjectsRef.current.forEach(o => {
-        o.group.visible = layers.traffic;
-      });
-    }
-  }, [layers.traffic]);
-
-  useEffect(() => () => cancelAnimationFrame(animFrameRef.current), []);
 
   useEffect(() => {
     if (timelineObjRef.current && timelineObjRef.current.userData.canvas) {
@@ -200,37 +178,52 @@ export default function SecurityGlobe({ geoData, focusCoords, focusCountry, metr
     }
   }, [focusCoords, focusCountry]);
 
-  // --- ТОЧКИ СТРАН И ПУЛЬСИРУЮЩИЕ КОЛЬЦА ---
-  const pointsData = (geoData || []).filter(item => countryCoords[item.country] && item.country !== 'XX').map(item => {
+  const pointsData = useMemo(() => (geoData || []).filter(item => countryCoords[item.country] && item.country !== 'XX').map(item => {
     const isFocused = focusCountry === item.country;
     const isDimmed = focusCountry && !isFocused;
-    const sizeScale = Math.max(0.01, Math.min(1.5, Math.pow(altitude / 2.5, 3)));
-    const baseSize = Math.log(item.count + 1) * (isFocused ? 0.25 : 0.15);
-    
-    return { 
-      lat: countryCoords[item.country][0], 
-      lng: countryCoords[item.country][1], 
-      size: baseSize * sizeScale, 
-      color: isFocused ? '#ffffff' : (isDimmed ? 'rgba(255, 140, 0, 0.15)' : '#ff8c00'), 
-      name: item.country, 
-      count: item.count,
-      maxR: 2.5, propSpeed: 1.5, period: 1500,
-      ringColor: isFocused ? '#ffffff' : (isDimmed ? 'rgba(255, 140, 0, 0.1)' : '#ff8c00')
-    };
-  });
+    const baseSize = Math.log(item.count + 1) * (isFocused ? 0.06 : 0.04);
 
-  // --- СКАНЕР (Нативные кольца) ---
+    return {
+      lat: countryCoords[item.country][0],
+      lng: countryCoords[item.country][1],
+      size: baseSize,
+      color: isDimmed ? 'rgba(255, 140, 0, 0.15)' : '#ff8c00',
+      name: item.country,
+      count: item.count,
+      maxR: isFocused ? 1.5 : 1.0, propSpeed: 2.0, period: isFocused ? 600 : 1000,
+      ringColor: isDimmed ? 'rgba(255, 140, 0, 0.1)' : '#ff8c00'
+    };
+  }), [geoData, focusCountry]);
+
   const scannerRing = {
-    lat: 90, lng: 0, maxR: 180, propSpeed: 45, period: 4000, ringColor: 'rgba(0, 255, 204, 0.8)' 
+    lat: 90, lng: 0, maxR: 180, propSpeed: 45, period: 9999999, ringColor: 'rgba(0, 255, 204, 0.8)'
   };
-  
-  // Формируем кольца только если слои включены
+
+  const [scannerRings, setScannerRings] = useState([]);
+
+  useEffect(() => {
+    if (!layers.shield) {
+      setScannerRings([]);
+      return;
+    }
+    const spawnWave = () => {
+      // Заменяем массив целиком, чтобы старые волны не наслаивались
+      setScannerRings([{ ...scannerRing, id: Date.now() }]);
+    };
+    spawnWave();
+    const interval = setInterval(spawnWave, 5000);
+    return () => {
+      clearInterval(interval);
+      setScannerRings([]); // Гарантированно чистим при выключении
+    };
+  }, [layers.shield]);
+
   const allRings = useMemo(() => {
     let rings = [];
     if (layers.threats) rings.push(...pointsData);
-    if (layers.scanner) rings.push(scannerRing);
+    if (layers.shield) rings.push(...scannerRings);
     return rings;
-  }, [pointsData, layers.threats, layers.scanner]);
+  }, [pointsData, layers.threats, layers.shield, scannerRings]);
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -244,38 +237,35 @@ export default function SecurityGlobe({ geoData, focusCoords, focusCountry, metr
   return (
     <div ref={containerRef} style={{ cursor: 'grab', height: '100%', width: '100%', position: 'absolute', inset: 0 }}>
       {dimensions.width > 0 && globeMaterial && (
-        <Globe 
-          ref={globeEl} 
-          width={dimensions.width} 
-          height={dimensions.height} 
-          globeMaterial={globeMaterial} 
-          backgroundColor="rgba(0,0,0,0)" 
-          
-          /* Атмосфера */
-          atmosphereColor={layers.atmosphere ? "#a855f7" : "rgba(0,0,0,0)"} 
-          atmosphereAltitude={0.15} 
-          
+        <Globe
+          ref={globeEl}
+          width={dimensions.width}
+          height={dimensions.height}
+          globeMaterial={globeMaterial}
+          backgroundColor="rgba(0,0,0,0)"
+
+          atmosphereColor={layers.atmosphere ? "#a855f7" : "rgba(0,0,0,0)"}
+          atmosphereAltitude={0.15}
+
           customLayerData={customLayerData}
           customThreeObject={createObject}
           customThreeObjectUpdate={updateObject}
 
-          /* Точки */
-          pointsData={layers.threats ? pointsData : []} 
-          pointsMerge={true} 
-          pointAltitude={0} 
-          pointRadius="size" 
-          pointColor="color" 
-          pointLabel={({ name, count }) => `<b>${name}</b>: ${count} requests`} 
-          
-          /* Кольца */
-          ringsData={allRings} 
-          ringColor={(d) => d.ringColor} 
-          ringMaxRadius={(d) => d.maxR} 
-          ringPropagationSpeed={(d) => d.propSpeed} 
-          ringRepeatPeriod={(d) => d.period} 
-          
-          onZoom={({ altitude }) => setAltitude(altitude)} 
-          onGlobeReady={handleGlobeReady} 
+          pointsData={layers.threats ? pointsData : []}
+          pointsMerge={true}
+          pointAltitude={0}
+          pointRadius="size"
+          pointColor="color"
+          pointLabel={({ name, count }) => `<b>${name}</b>: ${count} requests`}
+
+          ringsData={allRings}
+          ringColor={(d) => d.ringColor}
+          ringMaxRadius={(d) => d.maxR}
+          ringPropagationSpeed={(d) => d.propSpeed}
+          ringRepeatPeriod={(d) => d.period}
+
+          onZoom={({ altitude }) => setAltitude(altitude)}
+          onGlobeReady={handleGlobeReady}
         />
       )}
     </div>
