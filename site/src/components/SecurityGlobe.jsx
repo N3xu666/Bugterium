@@ -12,6 +12,7 @@ export default function SecurityGlobe({ geoData, focusCoords, focusCountry, metr
 
   const animFrameRef = useRef();
   const orbitObjectsRef = useRef([]);
+  const timelineObjRef = useRef(null);
 
   useEffect(() => {
     const img = new Image();
@@ -86,7 +87,9 @@ export default function SecurityGlobe({ geoData, focusCoords, focusCountry, metr
   };
 
   const createTimeline = (timelineData) => {
-    const group = new THREE.Group();
+    const outer = new THREE.Group();
+    const spinner = new THREE.Group();
+    outer.add(spinner);
     const canvas = document.createElement('canvas');
     canvas.width = 2048; canvas.height = 256;
     drawTimelineBars(canvas, timelineData);
@@ -96,10 +99,12 @@ export default function SecurityGlobe({ geoData, focusCoords, focusCountry, metr
       new THREE.CylinderGeometry(106, 106, 15, 64, 1, true),
       new THREE.MeshBasicMaterial({ map: texture, transparent: true, blending: THREE.AdditiveBlending, side: THREE.DoubleSide, depthWrite: false, opacity: 0.9 })
     );
-    group.userData.canvas = canvas;
-    group.userData.texture = texture;
-    group.add(mesh);
-    return group;
+    spinner.add(mesh);
+    outer.userData.canvas = canvas;
+    outer.userData.texture = texture;
+    outer.userData.spinner = spinner;
+    timelineObjRef.current = outer;
+    return outer;
   };
 
   const customLayerData = useMemo(() => {
@@ -116,14 +121,9 @@ export default function SecurityGlobe({ geoData, focusCoords, focusCountry, metr
   };
 
   const updateObject = (obj, d) => {
-    if (d.type === 'timeline' && obj.children[0]) {
+    if (d.type === 'timeline' && obj.userData.spinner && obj.userData.spinner.children[0]) {
       const time = Date.now() * 0.001;
-      obj.rotation.y = time * 0.1;
-      obj.children[0].material.opacity = 0.6 + Math.sin(time * 4) * 0.3;
-      if (obj.userData && obj.userData.canvas && obj.userData.texture) {
-        drawTimelineBars(obj.userData.canvas, d.timeline);
-        obj.userData.texture.needsUpdate = true;
-      }
+      obj.userData.spinner.children[0].material.opacity = 0.6 + Math.sin(time * 4) * 0.3;
     }
   };
 
@@ -178,6 +178,13 @@ export default function SecurityGlobe({ geoData, focusCoords, focusCountry, metr
   }, [layers.traffic]);
 
   useEffect(() => () => cancelAnimationFrame(animFrameRef.current), []);
+
+  useEffect(() => {
+    if (timelineObjRef.current && timelineObjRef.current.userData.canvas) {
+      drawTimelineBars(timelineObjRef.current.userData.canvas, timeline);
+      timelineObjRef.current.userData.texture.needsUpdate = true;
+    }
+  }, [timeline]);
 
   useEffect(() => {
     if (globeEl.current && focusCoords) {

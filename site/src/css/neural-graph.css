@@ -187,7 +187,7 @@
 .dot-home { background-color: #ffffff; color: #ffffff; }
 .dot-file { background-color: #a855f7; color: #a855f7; }
 .dot-tool { background-color: #c00030; color: #c00030; margin-right: 5px !important; }
-.dot-cve  { background-color: #ffaa00; color: #ffaa00; }
+.dot-cve { background-color: #ff8c00; color: #ff8c00; }
 
 .legend-items {
   display: flex;
@@ -277,7 +277,7 @@
   z-index: 10000;
   color: #c00030;
   font-family: 'JetBrains Mono', monospace;
-  font-size: 9px;
+  font-size: 10px;
   text-align: left;
   line-height: 1.6;
   pointer-events: none;

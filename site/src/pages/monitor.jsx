@@ -13,18 +13,15 @@ export default function MonitorPage() {
   const [lastSync, setLastSync] = useState('0000-00-00 00:00 GMT+4');
   const [displaySync, setDisplaySync] = useState('0000-00-00 00:00 GMT+4');
   const [isAnimating, setIsAnimating] = useState(false);
-  
+  const [activeTab, setActiveTab] = useState('countries');
+  const [viewMode, setViewMode] = useState('attacks');
+
   const [focusCoords, setFocusCoords] = useState(null);
   const [focusCountry, setFocusCountry] = useState(null);
+  const [focusPath, setFocusPath] = useState(null);
 
-  // Состояние видимости слоев (все включены по умолчанию)
   const [layers, setLayers] = useState({
-    timeline: true,
-    traffic: true,
-    scanner: true,
-    shield: true,
-    threats: true,
-    atmosphere: true,
+    timeline: true, traffic: true, scanner: true, shield: true, threats: true, atmosphere: true,
   });
 
   const toggleLayer = (key) => {
@@ -34,7 +31,7 @@ export default function MonitorPage() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const response = await fetch('https://bugterium-security-monitor.bugterium.workers.dev');
+        const response = await fetch('http://localhost:8787'); // Для локалки
         const result = await response.json();
         if (result.status === 'ok') {
           setData(result);
@@ -64,9 +61,7 @@ export default function MonitorPage() {
       const revealed = target.slice(0, Math.floor(frame));
       const scrambled = target.slice(Math.floor(frame)).split('').map(() => chars[Math.floor(Math.random() * chars.length)]).join('');
       setDisplaySync(revealed + scrambled);
-      if (frame >= target.length) {
-        clearInterval(interval);
-      }
+      if (frame >= target.length) clearInterval(interval);
     }, 30);
     return () => clearInterval(interval);
   }, [lastSync]);
@@ -81,13 +76,66 @@ export default function MonitorPage() {
     );
   }
 
-  const { security_metrics, geo_data, timeline } = data;
+  const { security_metrics, geo_data, attacks_by_country, timeline, path_data, user_agent_data } = data;
 
-  // Вспомогательная функция для стилизации легенды
+  // Вычисляем данные для глобуса: если выбран путь — берем корреляцию, иначе всех стран
+  // Определяем базовые данные в зависимости от режима (Трафик или Атаки)
+  const baseCountries = viewMode === 'attacks' ? attacks_by_country : geo_data;
+  const basePaths = viewMode === 'attacks' ? path_data.attacks : path_data.benign;
+
+  let displayGeoData = baseCountries;
+  let filteredPaths = basePaths;
+  let filteredCountries = baseCountries;
+
+  // Если выбран путь — фильтруем страны
+  if (focusPath && path_data.correlations[focusPath]) {
+    displayGeoData = Object.entries(path_data.correlations[focusPath])
+      .map(([country, count]) => ({ country, count }))
+      .sort((a, b) => b.count - a.count);
+    filteredCountries = displayGeoData;
+  } 
+  // Если выбрана страна — фильтруем пути
+  else if (focusCountry) {
+    const countryTotal = baseCountries.find(c => c.country === focusCountry);
+    if (countryTotal) displayGeoData = [countryTotal];
+    
+    filteredPaths = basePaths.filter(item => {
+      const corr = path_data.correlations[item.path];
+      return corr && corr[focusCountry];
+    }).map(item => ({
+      ...item,
+      count: path_data.correlations[item.path][focusCountry]
+    })).sort((a, b) => b.count - a.count);
+  }
+
   const legendItemStyle = (isActive) => ({
-    display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer',
+    display: 'flex', alignItems: 'center', cursor: 'pointer',
     opacity: isActive ? 1 : 0.3, transition: 'opacity 0.2s'
   });
+
+  const tabButtonStyle = (tabName) => ({
+    background: 'none', border: 'none', fontFamily: 'JetBrains Mono, monospace',
+    fontSize: '11px', cursor: 'pointer', padding: '0', fontWeight: activeTab === tabName ? 'bold' : 'normal',
+    color: activeTab === tabName ? '#c00030' : '#666',
+    transition: 'all 0.2s'
+  });
+
+  const handleTabClick = (tab) => {
+    setActiveTab(tab);
+    setFocusPath(null);
+    setFocusCountry(null);
+    setFocusCoords(null);
+  };
+
+  const handlePathClick = (path) => {
+    if (focusPath === path) {
+      setFocusPath(null);
+    } else {
+      setFocusPath(path);
+      setFocusCountry(null);
+      setFocusCoords(null);
+    }
+  };
 
   return (
     <Layout title="Bugterium / SECURITY MONITOR" description="Live Threat Intelligence" noFooter={true}>
@@ -97,27 +145,19 @@ export default function MonitorPage() {
         <div className={styles.leftCol}>
           <div className={styles.card}>
             <div className={styles.cardLabel}>REQUESTS (24H)</div>
-            <div className={styles.cardDesc} style={{ fontSize: '28px', color: '#fff', marginTop: '10px', fontWeight: 'bold' }}>
-              {security_metrics.worker_requests_24h}
-            </div>
+            <div className={styles.cardDesc} style={{ fontSize: '28px', color: '#fff', marginTop: '10px', fontWeight: 'bold' }}>{security_metrics.worker_requests_24h}</div>
           </div>
           <div className={styles.card}>
             <div className={styles.cardLabel}>ERRORS</div>
-            <div className={styles.cardDesc} style={{ fontSize: '28px', color: security_metrics.worker_errors_24h > 0 ? '#ff003c' : '#00ff00', marginTop: '10px', fontWeight: 'bold' }}>
-              {security_metrics.worker_errors_24h}
-            </div>
+            <div className={styles.cardDesc} style={{ fontSize: '28px', color: security_metrics.worker_errors_24h > 0 ? '#ff003c' : '#00ff00', marginTop: '10px', fontWeight: 'bold' }}>{security_metrics.worker_errors_24h}</div>
           </div>
           <div className={styles.card}>
             <div className={styles.cardLabel}>BLOCKED (403)</div>
-            <div className={styles.cardDesc} style={{ fontSize: '28px', color: security_metrics.blocked_403 > 0 ? '#c00030' : '#fff', marginTop: '10px', fontWeight: 'bold' }}>
-              {security_metrics.blocked_403}
-            </div>
+            <div className={styles.cardDesc} style={{ fontSize: '28px', color: security_metrics.blocked_403 > 0 ? '#c00030' : '#fff', marginTop: '10px', fontWeight: 'bold' }}>{security_metrics.blocked_403}</div>
           </div>
           <div className={styles.card}>
             <div className={styles.cardLabel}>RATE LIMITED</div>
-            <div className={styles.cardDesc} style={{ fontSize: '28px', color: '#fff', marginTop: '10px', fontWeight: 'bold' }}>
-              {security_metrics.blocked_429}
-            </div>
+            <div className={styles.cardDesc} style={{ fontSize: '28px', color: '#fff', marginTop: '10px', fontWeight: 'bold' }}>{security_metrics.blocked_429}</div>
           </div>
         </div>
 
@@ -129,47 +169,42 @@ export default function MonitorPage() {
               <nav className="crumbs">
                 <span className="crumb-item">
                   <button type="button" className="crumb active">
-                    {focusCountry ? `FOCUS: ${focusCountry}` : (isLive ? 'LIVE' : 'OFFLINE')}
+                    {focusPath ? `PATH: ${focusPath}` : (focusCountry ? `FOCUS: ${focusCountry}` : (isLive ? 'LIVE' : 'OFFLINE'))}
                   </button>
                 </span>
               </nav>
               <span className="status">{security_metrics.worker_requests_24h} REQUESTS / {security_metrics.blocked_403} BLOCKED</span>
             </header>
             <main className="stage">
-              
               {/* ИНТЕРАКТИВНАЯ ЛЕГЕНДА */}
-              <div style={{ position: 'absolute', top: '20px', left: '20px', zIndex: 10, display: 'flex', flexDirection: 'column', gap: '8px', fontFamily: 'JetBrains Mono, monospace', fontSize: '11px', color: '#fff', userSelect: 'none' }}>
-                <div style={legendItemStyle(layers.timeline)} onClick={() => toggleLayer('timeline')}>
-                  <span style={{ color: layers.timeline ? '#ff003c' : '#666', fontSize: '14px', transition: 'color 0.2s' }}>●</span> 24H TIMELINE
-                </div>
-                <div style={legendItemStyle(layers.traffic)} onClick={() => toggleLayer('traffic')}>
-                  <span style={{ color: layers.traffic ? '#00ffff' : '#666', fontSize: '14px', transition: 'color 0.2s' }}>●</span> EDGE TRAFFIC
-                </div>
-                <div style={legendItemStyle(layers.scanner)} onClick={() => toggleLayer('scanner')}>
-                  <span style={{ color: layers.scanner ? '#00ffcc' : '#666', fontSize: '14px', transition: 'color 0.2s' }}>●</span> ACTIVE SCANNER
-                </div>
-                <div style={legendItemStyle(layers.shield)} onClick={() => toggleLayer('shield')}>
-                  <span style={{ color: layers.shield ? '#00ff00' : '#666', fontSize: '14px', transition: 'color 0.2s' }}>●</span> DEFENSE SHIELD
-                </div>
-                <div style={legendItemStyle(layers.threats)} onClick={() => toggleLayer('threats')}>
-                  <span style={{ color: layers.threats ? '#ff8c00' : '#666', fontSize: '14px', transition: 'color 0.2s' }}>●</span> THREAT SOURCES
-                </div>
-                <div style={legendItemStyle(layers.atmosphere)} onClick={() => toggleLayer('atmosphere')}>
-                  <span style={{ color: layers.atmosphere ? '#a855f7' : '#666', fontSize: '14px', transition: 'color 0.2s' }}>●</span> ATMOSPHERE
-                </div>
+              <div style={{ position: 'absolute', top: '20px', left: '20px', zIndex: 10, display: 'flex', flexDirection: 'column', gap: '9px', fontFamily: 'JetBrains Mono, monospace', fontSize: '10px', color: '#fff', userSelect: 'none' }}>
+                {[
+                  { key: 'timeline', label: '24H TIMELINE', color: '#ff003c' },
+                  { key: 'traffic', label: 'EDGE TRAFFIC', color: '#00ffff' },
+                  { key: 'scanner', label: 'ACTIVE SCANNER', color: '#00ffcc' },
+                  { key: 'shield', label: 'DEFENSE SHIELD', color: '#00ff00' },
+                  { key: 'threats', label: 'THREAT SOURCES', color: '#ff8c00' }
+                ].map(item => (
+                  <div key={item.key} style={legendItemStyle(layers[item.key])} onClick={() => toggleLayer(item.key)}>
+                    <svg width="8" height="8" style={{ marginRight: '6px', flexShrink: 0 }}>
+                      <circle cx="4" cy="4" r="4" fill={layers[item.key] ? item.color : '#666'} />
+                    </svg>
+                    <span style={{ lineHeight: 1, transform: 'translateY(1px)' }}>{item.label}</span>
+                  </div>
+                ))}
+              </div>
+
+              {/* Дисклеймер в стиле Neural Port */}
+              <div style={{ position: 'absolute', bottom: '17px', left: '20px', zIndex: 10, fontFamily: 'JetBrains Mono, monospace', fontSize: '10px', letterSpacing: '0.05em', color: '#c00030', pointerEvents: 'none', lineHeight: '1.6' }}>
+                <div>Aggregated real-world traffic data.</div>
+                <div>No PII or IP addresses collected.</div>
+                <div>Fully anonymized.</div>
               </div>
 
               <BrowserOnly fallback={<div style={{ background: '#000', height: '100%' }} />}>
                 {() => (
                   <Suspense fallback={<div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%', color: '#c00030', fontFamily: 'JetBrains Mono, monospace' }}>Loading 3D Globe...</div>}>
-                    <SecurityGlobe 
-                      geoData={geo_data} 
-                      focusCoords={focusCoords} 
-                      focusCountry={focusCountry} 
-                      metrics={security_metrics} 
-                      timeline={timeline}
-                      layers={layers} /* ПЕРЕДАЕМ СОСТОЯНИЕ СЛОЕВ */
-                    />
+                    <SecurityGlobe geoData={displayGeoData} focusCoords={focusCoords} focusCountry={focusCountry} metrics={security_metrics} timeline={timeline} layers={layers} />
                   </Suspense>
                 )}
               </BrowserOnly>
@@ -177,67 +212,95 @@ export default function MonitorPage() {
           </div>
         </div>
 
-        {/* ПРАВАЯ КОЛОНКА */}
+                {/* ПРАВАЯ КОЛОНКА */}
         <div className={styles.rightCol}>
           <div className={styles.threatsHeader}>TOP SOURCES</div>
+          
+          {/* Переключатель режима */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '5px', marginBottom: '15px', fontFamily: 'JetBrains Mono, monospace', fontSize: '11px', color: '#666' }}>
+            <span>MODE:</span>
+            <div style={{ display: 'flex', gap: '15px' }}>
+              <button 
+                onClick={() => { setViewMode('attacks'); setFocusPath(null); setFocusCountry(null); setFocusCoords(null); }}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'JetBrains Mono, monospace', fontSize: '11px', padding: '0', color: viewMode === 'attacks' ? '#c00030' : '#666', fontWeight: viewMode === 'attacks' ? 'bold' : 'normal' }}
+              >
+                [ ATTACKS ]
+              </button>
+              <button 
+                onClick={() => { setViewMode('traffic'); setFocusPath(null); setFocusCountry(null); setFocusCoords(null); }}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'JetBrains Mono, monospace', fontSize: '11px', padding: '0', color: viewMode === 'traffic' ? '#c00030' : '#666', fontWeight: viewMode === 'traffic' ? 'bold' : 'normal' }}
+              >
+                [ ALL TRAFFIC ]
+              </button>
+            </div>
+          </div>
+
+          {/* Вкладки внутри режима */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '5px', marginBottom: '15px', borderBottom: '1px solid #333', paddingBottom: '15px', fontFamily: 'JetBrains Mono, monospace', fontSize: '11px', color: '#666' }}>
+            <span>FILTER BY:</span>
+            <div style={{ display: 'flex', gap: '15px', flexWrap: 'wrap' }}>
+              <button style={tabButtonStyle('countries')} onClick={() => handleTabClick('countries')}>[ COUNTRIES ]</button>
+              <button style={tabButtonStyle('paths')} onClick={() => handleTabClick('paths')}>[ PATHS ]</button>
+              <button style={tabButtonStyle('agents')} onClick={() => handleTabClick('agents')}>[ AGENTS ]</button>
+            </div>
+          </div>
+
           <div className={styles.threatList}>
-            {geo_data.slice(0, 10).map((item, idx) => {
+            {/* Вкладка СТРАНЫ */}
+            {activeTab === 'countries' && filteredCountries.slice(0, 10).map((item, idx) => {
               const hasCoords = !!countryCoords[item.country];
               const isFocused = focusCountry === item.country;
-              
               return (
-                <div 
-                  key={idx} 
-                  className={styles.threatCard}
-                  style={{ 
-                    cursor: hasCoords ? 'pointer' : 'default',
-                    opacity: hasCoords ? (focusCountry && !isFocused ? 0.4 : 1) : 0.5,
-                    borderColor: isFocused ? '#c00030' : undefined,
-                    backgroundColor: isFocused ? 'rgba(192, 0, 48, 0.1)' : undefined,
-                    transition: 'all 0.3s ease'
-                  }}
-                  onClick={() => {
-                    if (hasCoords) {
-                      if (isFocused) {
-                        setFocusCountry(null);
-                        setFocusCoords(null);
-                      } else {
-                        setFocusCountry(item.country);
-                        setFocusCoords({ lat: countryCoords[item.country][0], lng: countryCoords[item.country][1] });
-                      }
-                    }
-                  }}
-                >
+                <div key={idx} className={styles.threatCard} style={{ cursor: hasCoords ? 'pointer' : 'default', opacity: hasCoords ? (focusCountry && !isFocused ? 0.4 : 1) : 0.5, borderColor: isFocused ? '#c00030' : undefined, backgroundColor: isFocused ? 'rgba(192, 0, 48, 0.1)' : undefined, transition: 'all 0.3s ease' }} onClick={() => {
+                  if (hasCoords) {
+                    if (isFocused) { setFocusCountry(null); setFocusCoords(null); }
+                    else { setFocusCountry(item.country); setFocusCoords({ lat: countryCoords[item.country][0], lng: countryCoords[item.country][1] }); setFocusPath(null); }
+                  }
+                }}>
                   <div className={styles.threatHeader}>
                     <div className={styles.threatId} style={{ color: isFocused ? '#fff' : undefined }}>{item.country}</div>
-                    <div className={styles.threatRight}>
-                      <div className={styles.threatCvss} style={{ color: isFocused ? '#fff' : undefined }}>{item.count}</div>
-                    </div>
+                    <div className={styles.threatRight}><div className={styles.threatCvss} style={{ color: isFocused ? '#fff' : undefined }}>{item.count}</div></div>
                   </div>
                 </div>
               );
             })}
+
+            {/* Вкладка ПУТИ */}
+            {activeTab === 'paths' && filteredPaths.slice(0, 15).map((item, idx) => {
+              const isFocused = focusPath === item.path;
+              return (
+                <div key={idx} className={styles.threatCard} style={{ cursor: 'pointer', borderColor: isFocused ? '#c00030' : undefined, backgroundColor: isFocused ? 'rgba(192, 0, 48, 0.1)' : undefined }} onClick={() => handlePathClick(item.path)}>
+                  <div className={styles.threatHeader}>
+                    <div className={styles.threatId} style={{ fontSize: '11px', wordBreak: 'break-all', color: isFocused ? '#fff' : undefined }}>{item.path}</div>
+                    <div className={styles.threatRight}><div className={styles.threatCvss} style={{ color: isFocused ? '#fff' : undefined }}>{item.count}</div></div>
+                  </div>
+                </div>
+              );
+            })}
+
+            {/* Вкладка АГЕНТЫ */}
+            {activeTab === 'agents' && user_agent_data[viewMode].slice(0, 10).map((item, idx) => (
+              <div key={idx} className={styles.threatCard} title={item.ua}>
+                <div className={styles.threatHeader}>
+                  <div className={styles.threatId} style={{ fontSize: '11px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '200px' }}>{item.ua}</div>
+                  <div className={styles.threatRight}><div className={styles.threatCvss}>{item.count}</div></div>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
-
-        {/* ФУТЕРЫ */}
+{/* ФУТЕРЫ */}
         <div className={styles.leftFooter} style={{ display: 'flex', alignItems: 'center' }}>
           <svg width='14' height='14' viewBox='0 0 14 14' style={{ marginRight: '8px', transform: 'translateY(-0.5px)' }}>
             <circle cx='7' cy='7' r='5' fill='none' stroke='currentColor' strokeWidth='1' />
-            {isLive && (
-              <circle cx='7' cy='7' r='2.5' fill='#c00030' />
-            )}
+            {isLive && (<circle cx='7' cy='7' r='2.5' fill='#c00030' />)}
           </svg>
           {isLive ? 'SYSTEM READY' : 'OFFLINE'}
         </div>
-
         <div className={styles.centerFooter}>LEFT-CLICK: ROTATE · MOUSE-WHEEL: ZOOM</div>
-
         <div className={styles.rightFooter} style={{ display: 'block', textAlign: 'center', width: '100%', padding: '10px 0' }}>
           <span style={{ display: 'inline-block', position: 'relative', transform: 'translateX(-6px)', whiteSpace: 'nowrap' }}>
-            <span style={{ visibility: 'hidden', fontWeight: 'bold' }}>
-              <span>LIVE SYNC:</span> 0000-00-00 00:00 GMT+4
-            </span>
+            <span style={{ visibility: 'hidden', fontWeight: 'bold' }}><span>LIVE SYNC:</span> 0000-00-00 00:00 GMT+4</span>
             <span style={{ position: 'absolute', left: 0, top: 0 }}>
               <span className={isAnimating ? styles.blink : ''} style={{ color: '#c00030', fontWeight: 'bold', transition: 'opacity 0.5s ease-out' }}>LIVE SYNC:</span> {displaySync}
             </span>
