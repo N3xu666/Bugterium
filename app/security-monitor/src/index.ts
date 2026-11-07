@@ -1,4 +1,4 @@
-export default {
+﻿export default {
   async fetch(request: Request, env: any, ctx: ExecutionContext): Promise<Response> {
     // Безопасный CORS
     const origin = request.headers.get("Origin") || "";
@@ -25,11 +25,17 @@ export default {
             workersInvocationsAdaptive(limit: 100, filter: {datetime_geq: $startTime}) {
               sum { requests errors }
             }
-            httpRequestsAdaptiveGroups(limit: 100, filter: {datetime_geq: $startTime}) {
+            byStatusCountry: httpRequestsAdaptiveGroups(limit: 100, filter: {datetime_geq: $startTime}) {
               count
               dimensions {
                 edgeResponseStatus
                 clientCountryName
+              }
+            }
+            byHour: httpRequestsAdaptiveGroups(limit: 24, filter: {datetime_geq: $startTime}, orderBy: [datetimeHour_ASC]) {
+              count
+              dimensions {
+                datetimeHour
               }
             }
           }
@@ -60,7 +66,25 @@ export default {
 
       const accountData = data.data.viewer.accounts[0];
       const stats = accountData.workersInvocationsAdaptive;
-      const httpGroups = accountData.httpRequestsAdaptiveGroups || [];
+      const httpGroups = accountData.byStatusCountry || [];
+      const byHour = accountData.byHour || [];
+
+      // Build 24-bucket hourly timeline (oldest -> newest), zero-filled.
+      const hourKey = (iso: string) => Math.floor(new Date(iso).getTime() / 3600000);
+      const hourlyMap: Record<number, number> = {};
+      byHour.forEach((group: any) => {
+        const key = hourKey(group.dimensions.datetimeHour);
+        hourlyMap[key] = (hourlyMap[key] || 0) + group.count;
+      });
+      const currentHourKey = Math.floor(Date.now() / 3600000);
+      const timeline: { hour: string; count: number }[] = [];
+      for (let i = 23; i >= 0; i--) {
+        const key = currentHourKey - i;
+        timeline.push({
+          hour: new Date(key * 3600000).toISOString(),
+          count: hourlyMap[key] || 0,
+        });
+      }
       
       let totalRequests = 0;
       let totalErrors = 0;
@@ -105,7 +129,8 @@ export default {
           blocked_403: blocked403,
           blocked_429: blocked429
         },
-        geo_data: countryData
+        geo_data: countryData,
+        timeline: timeline
       }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
