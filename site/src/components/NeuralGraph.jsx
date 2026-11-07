@@ -12,7 +12,7 @@ const MAT = {
   index: new THREE.MeshBasicMaterial({ color: 0xffffff }),
   file: new THREE.MeshBasicMaterial({ color: new THREE.Color(0xa855f7).multiplyScalar(2.5) }),
   tool: new THREE.MeshBasicMaterial({ color: new THREE.Color(0xff0000).multiplyScalar(2.5) }),
-  cve: new THREE.MeshBasicMaterial({ color: 0xff8800 }),
+  cve: new THREE.MeshBasicMaterial({ color: 0xff8c00 }),
 };
 
 const linkPoints = [];
@@ -72,20 +72,20 @@ const getNodeColorHex = (node) => {
   if (!node) return 0xa855f7;
   if (node.id === HOME) return 0xffffff;
   if (node.group === 'tool') return 0xff0000;
-  if (node.group === 'cve') return 0xff8800;
+  if (node.group === 'cve') return 0xff8c00;
   if (node.is_index) return 0xffffff;
   return 0xa855f7;
 };
 const sphereRadiusFor = (hex) => {
   if (hex === 0xff0000) return 2.5;
-  if (hex === 0xff8800) return 2.0;
+  if (hex === 0xff8c00) return 2.0;
   if (hex === 0xa855f7) return 1.4;
   if (hex === 0xffffff) return 2.2;
   return 1.4;
 };
 const thicknessBoostFor = (hex) => {
   if (hex === 0xff0000) return 3.0;
-  if (hex === 0xff8800) return 5.7;
+  if (hex === 0xff8c00) return 5.7;
   if (hex === 0xa855f7) return 2.5;
   if (hex === 0xffffff) return 2.0;
   return 4.0;
@@ -98,8 +98,8 @@ const getLinkMaterial = (srcHex, tgtHex) => {
   const key = srcHex.toString(16).padStart(6, '0') + '_' + tgtHex.toString(16).padStart(6, '0');
   let mat = LINK_MAT_CACHE.get(key);
   if (mat) return mat;
-  const bright = (srcHex === 0xff0000 || tgtHex === 0xff0000 || srcHex === 0xff8800 || tgtHex === 0xff8800);
-  const isFullOpacity = (srcHex === 0xa855f7 && tgtHex === 0xff0000) || (srcHex === 0xff0000 && tgtHex === 0xa855f7) || srcHex === 0xff8800 || tgtHex === 0xff8800;
+  const bright = (srcHex === 0xff0000 || tgtHex === 0xff0000 || srcHex === 0xff8c00 || tgtHex === 0xff8c00);
+  const isFullOpacity = (srcHex === 0xa855f7 && tgtHex === 0xff0000) || (srcHex === 0xff0000 && tgtHex === 0xa855f7) || srcHex === 0xff8c00 || tgtHex === 0xff8c00;
   mat = new THREE.ShaderMaterial({
     uniforms: {
       uColorA: { value: new THREE.Color(srcHex) },
@@ -465,7 +465,7 @@ export default function NeuralGraph({ onReady }) {
               const tgt = typeof l.target === 'object' ? l.target : { id: l.target };
               const src = typeof l.source === 'object' ? l.source : { id: l.source };
               if (tgt.group === 'tool' || src.group === 'tool') return '#c00030';
-              if (tgt.group === 'cve' || src.group === 'cve') return '#ff8800';
+              if (tgt.group === 'cve' || src.group === 'cve') return '#ff8c00';
               return '#aaaaaa';
             }}
             linkThreeObject={getLinkObject}
