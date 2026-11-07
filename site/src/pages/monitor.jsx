@@ -31,7 +31,10 @@ export default function MonitorPage() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const response = await fetch('http://localhost:8787'); // Для локалки
+        const apiUrl = typeof window !== 'undefined' && window.location.hostname === 'localhost'
+          ? 'http://localhost:8787'
+          : 'https://bugterium-security-monitor.bugterium.workers.dev';
+        const response = await fetch(apiUrl);
         const result = await response.json();
         if (result.status === 'ok') {
           setData(result);
