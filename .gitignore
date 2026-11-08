@@ -55,6 +55,9 @@ site/dist/
 site/.docusaurus/
 site-poc/
 
+# Generic: node_modules at any level (root, app, site)
+node_modules/
+
 # App (Secure App MVP - Phase B)
 app/frontend/node_modules/
 app/frontend/dist/

@@ -2,6 +2,9 @@ import { Hono } from 'hono';
 import type { Bindings } from './env';
 import { securityHeaders } from './middleware/security';
 import { toErrorResponse, AppError } from './lib/errors';
+import { sha256 } from './lib/crypto';
+import { logAuthEvent } from './auth/session';
+import { apiRateLimit } from './middleware/rateLimit';
 import oauth from './auth/oauth';
 import me from './routes/me';
 import logout from './routes/logout';
@@ -10,6 +13,7 @@ import admin from './routes/admin';
 const app = new Hono<{ Bindings: Bindings }>();
 
 app.use('/api/*', securityHeaders);
+app.use('/api/*', apiRateLimit);
 app.use('/auth/*', securityHeaders);
 
 app.route('/auth', oauth);
@@ -29,10 +33,17 @@ app.notFound((c) => {
   return c.json({ error: 'not_found' }, 404);
 });
 
-app.onError((err, c) => {
+app.onError(async (err, c) => {
   // Log only actual unhandled 500 errors, not expected 4xx AppErrors.
   if (!(err instanceof AppError)) {
     console.error('unhandled_error', err instanceof Error ? err.message : 'unknown');
+  }
+  if (c.req.path === '/auth/github/callback') {
+    try {
+      const ip = c.req.header('CF-Connecting-IP') || 'unknown';
+      const ipHash = await sha256(ip + c.env.IP_PEPPER);
+      await logAuthEvent(c.env.DB, null, 'login_fail', ipHash);
+    } catch { /* never mask the original error */ }
   }
   const res = toErrorResponse(err);
   return c.json(res.body, res.status as any);

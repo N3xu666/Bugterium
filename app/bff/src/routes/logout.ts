@@ -2,6 +2,8 @@ import { Hono } from 'hono';
 import { getCookie, deleteCookie } from 'hono/cookie';
 import { verifyJwt } from '../auth/jwt';
 import type { Bindings } from '../env';
+import { sha256 } from '../lib/crypto';
+import { logAuthEvent } from '../auth/session';
 
 const logout = new Hono<{ Bindings: Bindings }>();
 
@@ -13,6 +15,9 @@ logout.post('/', async (c) => {
       const payload = await verifyJwt(token, c.env.JWT_SIGNING_KEY);
       // Delete session from DB
       await c.env.DB.prepare('DELETE FROM sessions WHERE id = ?').bind(payload.sid).run();
+      const ip = c.req.header('CF-Connecting-IP') || 'unknown';
+      const ipHash = await sha256(ip + c.env.IP_PEPPER);
+      await logAuthEvent(c.env.DB, Number(payload.sub), 'logout', ipHash);
     } catch {
       // Ignore invalid/expired tokens on logout
     }
