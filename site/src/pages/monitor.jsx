@@ -16,12 +16,15 @@ export default function MonitorPage() {
   const [activeTab, setActiveTab] = useState('countries');
   const [viewMode, setViewMode] = useState('traffic');
   const [onlyBots, setOnlyBots] = useState(false);
+  const [viewMode, setViewMode] = useState('traffic');
+  const [onlyBots, setOnlyBots] = useState(false);
 
   const [focusCoords, setFocusCoords] = useState(null);
   const [focusCountry, setFocusCountry] = useState(null);
   const [focusPath, setFocusPath] = useState(null);
 
   const [layers, setLayers] = useState({
+    timeline: true, shield: true, threats: true, atmosphere: true,
     timeline: true, shield: true, threats: true, atmosphere: true,
   });
 
@@ -94,6 +97,9 @@ export default function MonitorPage() {
   const botRe = /bot|crawl|spider|slurp|curl|wget|python|go-http|java\/|okhttp|axios|node-fetch|headless|phantom|puppet|selenium|playwright|masscan|nmap|nikto|sqlmap|zgrab|censys|shodan|expanse|nuclei|httpx|feroxbuster|gobuster|dirb|dirbuster|ffuf/i;
   const filteredAgents = onlyBots ? user_agent_data[viewMode].filter(a => botRe.test(a.ua)) : user_agent_data[viewMode];
 
+  const botRe = /bot|crawl|spider|slurp|curl|wget|python|go-http|java\/|okhttp|axios|node-fetch|headless|phantom|puppet|selenium|playwright|masscan|nmap|nikto|sqlmap|zgrab|censys|shodan|expanse|nuclei|httpx|feroxbuster|gobuster|dirb|dirbuster|ffuf/i;
+  const filteredAgents = onlyBots ? user_agent_data[viewMode].filter(a => botRe.test(a.ua)) : user_agent_data[viewMode];
+
   // Если выбран путь — фильтруем страны
   if (focusPath && path_data.correlations[focusPath]) {
     displayGeoData = Object.entries(path_data.correlations[focusPath])
@@ -103,9 +109,6 @@ export default function MonitorPage() {
   } 
   // Если выбрана страна — фильтруем пути
   else if (focusCountry) {
-    const countryTotal = baseCountries.find(c => c.country === focusCountry);
-    if (countryTotal) displayGeoData = [countryTotal];
-    
     filteredPaths = basePaths.filter(item => {
       const corr = path_data.correlations[item.path];
       return corr && corr[focusCountry];
@@ -185,10 +188,11 @@ export default function MonitorPage() {
             <main className="stage">
               {/* ИНТЕРАКТИВНАЯ ЛЕГЕНДА */}
               <div style={{ position: 'absolute', top: '20px', left: '20px', zIndex: 10, display: 'flex', flexDirection: 'column', gap: '9px', fontFamily: 'JetBrains Mono, monospace', fontSize: '10px', color: '#888', userSelect: 'none' }}>
+              <div style={{ position: 'absolute', top: '20px', left: '20px', zIndex: 10, display: 'flex', flexDirection: 'column', gap: '9px', fontFamily: 'JetBrains Mono, monospace', fontSize: '10px', color: '#888', userSelect: 'none' }}>
                 {[
                         { key: 'threats', label: 'Events', color: '#ff8c00' },
-      { key: 'shield', label: 'Defense In Depth', color: '#00ff00' },
-      { key: 'timeline', label: '24H Traffic Timeline', color: '#ff2a6d' }
+      { key: 'shield', label: 'Defense In Depth', color: '#0000ff' },
+      { key: 'timeline', label: '24H Traffic Timeline', color: '#a855f7' }
                 ].map(item => (
                   <div key={item.key} style={legendItemStyle(layers[item.key])} onClick={() => toggleLayer(item.key)}>
                     <svg width="8" height="8" style={{ marginRight: '6px', flexShrink: 0 }}>
@@ -209,7 +213,7 @@ export default function MonitorPage() {
               <BrowserOnly fallback={<div style={{ background: '#000', height: '100%' }} />}>
                 {() => (
                   <Suspense fallback={<div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%', color: '#c00030', fontFamily: 'JetBrains Mono, monospace' }}>Loading 3D Globe...</div>}>
-                    <SecurityGlobe geoData={displayGeoData} focusCoords={focusCoords} focusCountry={focusCountry} metrics={security_metrics} timeline={timeline} layers={layers} />
+                    <SecurityGlobe geoData={displayGeoData} focusCoords={focusCoords} focusCountry={focusCountry} metrics={security_metrics} timeline={timeline} layers={layers} onCountryClick={(country) => { if (focusCountry === country) { setFocusCountry(null); setFocusCoords(null); } else { setFocusCountry(country); setFocusCoords({ lat: countryCoords[country][0], lng: countryCoords[country][1] }); } setFocusPath(null); }} />
                   </Suspense>
                 )}
               </BrowserOnly>
@@ -237,15 +241,29 @@ export default function MonitorPage() {
               >
                 [ SUSPICIOUS ACTIVITY ]
               </button>
+              <button 
+                onClick={() => { setViewMode('attacks'); setFocusPath(null); setFocusCountry(null); setFocusCoords(null); }}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'JetBrains Mono, monospace', fontSize: '11px', padding: '0', color: viewMode === 'attacks' ? '#c00030' : '#666', fontWeight: viewMode === 'attacks' ? 'bold' : 'normal' }}
+              >
+                [ SUSPICIOUS ACTIVITY ]
+              </button>
             </div>
           </div>
 
           {/* Вкладки внутри режима */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '5px', marginBottom: '15px', borderBottom: '1px solid #1a1a1a', paddingBottom: '15px', fontFamily: 'JetBrains Mono, monospace', fontSize: '11px', color: '#666' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '5px', marginBottom: '15px', borderBottom: '1px solid #1a1a1a', paddingBottom: '15px', fontFamily: 'JetBrains Mono, monospace', fontSize: '11px', color: '#666' }}>
             <span>FILTER BY:</span>
+            <div style={{ display: 'flex', gap: '15px', flexWrap: 'wrap', alignItems: 'flex-start', marginBottom: activeTab === 'agents' ? '30px' : '0px' }}>
             <div style={{ display: 'flex', gap: '15px', flexWrap: 'wrap', alignItems: 'flex-start', marginBottom: activeTab === 'agents' ? '30px' : '0px' }}>
               <button style={tabButtonStyle('countries')} onClick={() => handleTabClick('countries')}>[ COUNTRIES ]</button>
               <button style={tabButtonStyle('paths')} onClick={() => handleTabClick('paths')}>[ PATHS ]</button>
+              <div style={{ display: 'flex', flexDirection: 'column', position: 'relative' }}>
+                <button style={tabButtonStyle('agents')} onClick={() => handleTabClick('agents')}>[ USER AGENTS ]</button>
+                {activeTab === 'agents' && (
+                  <button onClick={() => setOnlyBots(prev => !prev)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'JetBrains Mono, monospace', fontSize: '11px', padding: '0', position: 'absolute', top: '24px', left: '50%', transform: 'translateX(-50%)', color: onlyBots ? '#800020' : '#333', fontWeight: onlyBots ? 'bold' : 'normal', whiteSpace: 'nowrap' }}>ONLY BOTS</button>
+                )}
+              </div>
               <div style={{ display: 'flex', flexDirection: 'column', position: 'relative' }}>
                 <button style={tabButtonStyle('agents')} onClick={() => handleTabClick('agents')}>[ USER AGENTS ]</button>
                 {activeTab === 'agents' && (
@@ -289,6 +307,7 @@ export default function MonitorPage() {
             })}
 
             {/* Вкладка АГЕНТЫ */}
+            {activeTab === 'agents' && filteredAgents.slice(0, 10).map((item, idx) => (
             {activeTab === 'agents' && filteredAgents.slice(0, 10).map((item, idx) => (
               <div key={idx} className={styles.threatCard} title={item.ua}>
                 <div className={styles.threatHeader}>
