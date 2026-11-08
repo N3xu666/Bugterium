@@ -16,6 +16,7 @@ export default function SecurityGlobe({ geoData, focusCoords, focusCountry, metr
     const img = new Image();
     img.src = '/earth_8k.jpg';
 
+
     img.onload = () => {
       const canvas = document.createElement('canvas');
       canvas.width = img.width;
@@ -23,8 +24,10 @@ export default function SecurityGlobe({ geoData, focusCoords, focusCountry, metr
       const ctx = canvas.getContext('2d');
       ctx.drawImage(img, 0, 0);
 
+
       const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
       const data = imgData.data;
+
 
       for (let i = 0; i < data.length; i += 4) {
         const r = data[i], g = data[i+1], b = data[i+2];
@@ -54,6 +57,18 @@ export default function SecurityGlobe({ geoData, focusCoords, focusCountry, metr
   const createShield = (metricsData) => {
     const group = new THREE.Group();
     if (!metricsData) return group;
+    const createGlow = (color, opacity) => {
+      const mat = new THREE.MeshBasicMaterial({
+        color: color, transparent: true, opacity: opacity,
+        blending: THREE.AdditiveBlending, side: THREE.DoubleSide, depthWrite: false
+      });
+      const mesh = new THREE.Mesh(new THREE.TorusGeometry(120, 0.5, 16, 128), mat);
+      return mesh;
+    };
+
+    const s1 = createGlow(0xffff00, metricsData.blocked_429 > 0 ? 1.0 : 0.1); s1.name = 'glow-429'; s1.rotation.x = Math.PI / 2; s1.rotation.y = -Math.PI / 3; group.add(s1);
+    const s2 = createGlow(0x00ff00, metricsData.worker_errors_24h > 0 ? 1.0 : 0.1); s2.name = 'glow-errors'; s2.rotation.x = Math.PI / 2; s2.rotation.y = Math.PI / 3; group.add(s2);
+    const s3 = createGlow(0xff0000, metricsData.blocked_403 > 0 ? 1.0 : 0.1); s3.name = 'glow-403'; s3.rotation.x = Math.PI / 2; group.add(s3);
     const createGlow = (color, opacity) => {
       const mat = new THREE.MeshBasicMaterial({
         color: color, transparent: true, opacity: opacity,
@@ -131,6 +146,24 @@ export default function SecurityGlobe({ geoData, focusCoords, focusCountry, metr
   };
 
   const updateObject = (obj, d) => {
+    // Мигание вынесено в отдельный цикл requestAnimationFrame для плавности
+  };
+
+  useEffect(() => {
+    let animId;
+    const animate = () => {
+      if (timelineObjRef.current && timelineObjRef.current.userData.spinner) {
+        const spinner = timelineObjRef.current.userData.spinner;
+        const time = performance.now() * 0.001;
+        const opacity = 0.6 + Math.sin(time * 4) * 0.3;
+        if (spinner.children[0]) spinner.children[0].material.opacity = opacity;
+      }
+      animId = requestAnimationFrame(animate);
+    };
+    animate();
+    return () => cancelAnimationFrame(animId);
+  }, []);
+
     // Мигание вынесено в отдельный цикл requestAnimationFrame для плавности
   };
 
@@ -300,6 +333,16 @@ export default function SecurityGlobe({ geoData, focusCoords, focusCountry, metr
           atmosphereColor={layers.atmosphere ? "#a855f7" : "rgba(0,0,0,0)"}
           atmosphereAltitude={0.15}
 
+        <Globe
+          ref={globeEl}
+          width={dimensions.width}
+          height={dimensions.height}
+          globeMaterial={globeMaterial}
+          backgroundColor="rgba(0,0,0,0)"
+
+          atmosphereColor={layers.atmosphere ? "#a855f7" : "rgba(0,0,0,0)"}
+          atmosphereAltitude={0.15}
+
           customLayerData={customLayerData}
           customThreeObject={createObject}
           customThreeObjectUpdate={updateObject}
@@ -326,3 +369,4 @@ export default function SecurityGlobe({ geoData, focusCoords, focusCountry, metr
     </div>
   );
 }
+
