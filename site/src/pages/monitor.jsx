@@ -23,7 +23,6 @@ export default function MonitorPage() {
 
   const [layers, setLayers] = useState({
     timeline: true, shield: true, threats: true, atmosphere: true,
-    timeline: true, shield: true, threats: true, atmosphere: true,
   });
 
   const toggleLayer = (key) => {
@@ -83,8 +82,6 @@ export default function MonitorPage() {
 
   const { security_metrics, geo_data, attacks_by_country, timeline, path_data, user_agent_data } = data;
 
-  // Вычисляем данные для глобуса: если выбран путь — берем корреляцию, иначе всех стран
-  // Определяем базовые данные в зависимости от режима (Трафик или Атаки)
   const baseCountries = viewMode === 'attacks' ? attacks_by_country : geo_data;
   const basePaths = viewMode === 'attacks' ? path_data.attacks : path_data.benign;
 
@@ -96,15 +93,12 @@ export default function MonitorPage() {
 
   const filteredAgents = onlyBots ? user_agent_data[viewMode].filter(a => botRe.test(a.ua)) : user_agent_data[viewMode];
 
-  // Если выбран путь — фильтруем страны
   if (focusPath && path_data.correlations[focusPath]) {
     displayGeoData = Object.entries(path_data.correlations[focusPath])
       .map(([country, count]) => ({ country, count }))
       .sort((a, b) => b.count - a.count);
     filteredCountries = displayGeoData;
-  } 
-  // Если выбрана страна — фильтруем пути
-  else if (focusCountry) {
+  } else if (focusCountry) {
     filteredPaths = basePaths.filter(item => {
       const corr = path_data.correlations[item.path];
       return corr && corr[focusCountry];
@@ -146,7 +140,7 @@ export default function MonitorPage() {
   return (
     <Layout title="Bugterium / SECURITY MONITOR" description="Live Threat Intelligence" noFooter={true}>
       <div className={styles.layout}>
-
+        
         {/* ЛЕВАЯ КОЛОНКА */}
         <div className={styles.leftCol}>
           <div className={styles.card}>
@@ -185,9 +179,9 @@ export default function MonitorPage() {
               {/* ИНТЕРАКТИВНАЯ ЛЕГЕНДА */}
               <div style={{ position: 'absolute', top: '20px', left: '20px', zIndex: 10, display: 'flex', flexDirection: 'column', gap: '9px', fontFamily: 'JetBrains Mono, monospace', fontSize: '10px', color: '#888', userSelect: 'none' }}>
                 {[
-                        { key: 'threats', label: 'Events', color: '#ff8c00' },
-      { key: 'shield', label: 'Defense In Depth', color: '#0000ff' },
-      { key: 'timeline', label: '24H Traffic Timeline', color: '#a855f7' }
+                  { key: 'threats', label: 'Events', color: '#ff8c00' },
+                  { key: 'shield', label: 'Defense In Depth', color: '#0000ff' },
+                  { key: 'timeline', label: '24H Traffic Timeline', color: '#a855f7' }
                 ].map(item => (
                   <div key={item.key} style={legendItemStyle(layers[item.key])} onClick={() => toggleLayer(item.key)}>
                     <svg width="8" height="8" style={{ marginRight: '6px', flexShrink: 0 }}>
@@ -216,27 +210,21 @@ export default function MonitorPage() {
           </div>
         </div>
 
-                {/* ПРАВАЯ КОЛОНКА */}
+        {/* ПРАВАЯ КОЛОНКА */}
         <div className={styles.rightCol}>
           <div className={styles.threatsHeader}>TOP SOURCES</div>
-          
+
           {/* Переключатель режима */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '5px', marginBottom: '15px', fontFamily: 'JetBrains Mono, monospace', fontSize: '11px', color: '#666' }}>
             <span>MODE:</span>
             <div style={{ display: 'flex', gap: '15px' }}>
-              <button 
+              <button
                 onClick={() => { setViewMode('traffic'); setFocusPath(null); setFocusCountry(null); setFocusCoords(null); }}
                 style={{ background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'JetBrains Mono, monospace', fontSize: '11px', padding: '0', color: viewMode === 'traffic' ? '#c00030' : '#666', fontWeight: viewMode === 'traffic' ? 'bold' : 'normal' }}
               >
                 [ ALL TRAFFIC ]
               </button>
-              <button 
-                onClick={() => { setViewMode('attacks'); setFocusPath(null); setFocusCountry(null); setFocusCoords(null); }}
-                style={{ background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'JetBrains Mono, monospace', fontSize: '11px', padding: '0', color: viewMode === 'attacks' ? '#c00030' : '#666', fontWeight: viewMode === 'attacks' ? 'bold' : 'normal' }}
-              >
-                [ SUSPICIOUS ACTIVITY ]
-              </button>
-              <button 
+              <button
                 onClick={() => { setViewMode('attacks'); setFocusPath(null); setFocusCountry(null); setFocusCoords(null); }}
                 style={{ background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'JetBrains Mono, monospace', fontSize: '11px', padding: '0', color: viewMode === 'attacks' ? '#c00030' : '#666', fontWeight: viewMode === 'attacks' ? 'bold' : 'normal' }}
               >
@@ -247,18 +235,10 @@ export default function MonitorPage() {
 
           {/* Вкладки внутри режима */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '5px', marginBottom: '15px', borderBottom: '1px solid #1a1a1a', paddingBottom: '15px', fontFamily: 'JetBrains Mono, monospace', fontSize: '11px', color: '#666' }}>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '5px', marginBottom: '15px', borderBottom: '1px solid #1a1a1a', paddingBottom: '15px', fontFamily: 'JetBrains Mono, monospace', fontSize: '11px', color: '#666' }}>
             <span>FILTER BY:</span>
-            <div style={{ display: 'flex', gap: '15px', flexWrap: 'wrap', alignItems: 'flex-start', marginBottom: activeTab === 'agents' ? '30px' : '0px' }}>
             <div style={{ display: 'flex', gap: '15px', flexWrap: 'wrap', alignItems: 'flex-start', marginBottom: activeTab === 'agents' ? '30px' : '0px' }}>
               <button style={tabButtonStyle('countries')} onClick={() => handleTabClick('countries')}>[ COUNTRIES ]</button>
               <button style={tabButtonStyle('paths')} onClick={() => handleTabClick('paths')}>[ PATHS ]</button>
-              <div style={{ display: 'flex', flexDirection: 'column', position: 'relative' }}>
-                <button style={tabButtonStyle('agents')} onClick={() => handleTabClick('agents')}>[ USER AGENTS ]</button>
-                {activeTab === 'agents' && (
-                  <button onClick={() => setOnlyBots(prev => !prev)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'JetBrains Mono, monospace', fontSize: '11px', padding: '0', position: 'absolute', top: '24px', left: '50%', transform: 'translateX(-50%)', color: onlyBots ? '#800020' : '#333', fontWeight: onlyBots ? 'bold' : 'normal', whiteSpace: 'nowrap' }}>ONLY BOTS</button>
-                )}
-              </div>
               <div style={{ display: 'flex', flexDirection: 'column', position: 'relative' }}>
                 <button style={tabButtonStyle('agents')} onClick={() => handleTabClick('agents')}>[ USER AGENTS ]</button>
                 {activeTab === 'agents' && (
@@ -312,7 +292,8 @@ export default function MonitorPage() {
             ))}
           </div>
         </div>
-{/* ФУТЕРЫ */}
+
+        {/* ФУТЕРЫ */}
         <div className={styles.leftFooter} style={{ display: 'flex', alignItems: 'center' }}>
           <svg width='14' height='14' viewBox='0 0 14 14' style={{ marginRight: '8px', transform: 'translateY(-0.5px)' }}>
             <circle cx='7' cy='7' r='5' fill='none' stroke='currentColor' strokeWidth='1' />
@@ -330,8 +311,6 @@ export default function MonitorPage() {
           </span>
         </div>
 
-          </div>
-        </div>
       </div>
     </Layout>
   );

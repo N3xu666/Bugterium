@@ -16,7 +16,6 @@ export default function SecurityGlobe({ geoData, focusCoords, focusCountry, metr
     const img = new Image();
     img.src = '/earth_8k.jpg';
 
-
     img.onload = () => {
       const canvas = document.createElement('canvas');
       canvas.width = img.width;
@@ -24,10 +23,8 @@ export default function SecurityGlobe({ geoData, focusCoords, focusCountry, metr
       const ctx = canvas.getContext('2d');
       ctx.drawImage(img, 0, 0);
 
-
       const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
       const data = imgData.data;
-
 
       for (let i = 0; i < data.length; i += 4) {
         const r = data[i], g = data[i+1], b = data[i+2];
@@ -69,18 +66,6 @@ export default function SecurityGlobe({ geoData, focusCoords, focusCountry, metr
     const s1 = createGlow(0xffff00, metricsData.blocked_429 > 0 ? 1.0 : 0.1); s1.name = 'glow-429'; s1.rotation.x = Math.PI / 2; s1.rotation.y = -Math.PI / 3; group.add(s1);
     const s2 = createGlow(0x00ff00, metricsData.worker_errors_24h > 0 ? 1.0 : 0.1); s2.name = 'glow-errors'; s2.rotation.x = Math.PI / 2; s2.rotation.y = Math.PI / 3; group.add(s2);
     const s3 = createGlow(0xff0000, metricsData.blocked_403 > 0 ? 1.0 : 0.1); s3.name = 'glow-403'; s3.rotation.x = Math.PI / 2; group.add(s3);
-    const createGlow = (color, opacity) => {
-      const mat = new THREE.MeshBasicMaterial({
-        color: color, transparent: true, opacity: opacity,
-        blending: THREE.AdditiveBlending, side: THREE.DoubleSide, depthWrite: false
-      });
-      const mesh = new THREE.Mesh(new THREE.TorusGeometry(120, 0.5, 16, 128), mat);
-      return mesh;
-    };
-
-    const s1 = createGlow(0xffff00, metricsData.blocked_429 > 0 ? 1.0 : 0.1); s1.name = 'glow-429'; s1.rotation.x = Math.PI / 2; s1.rotation.y = -Math.PI / 3; group.add(s1);
-    const s2 = createGlow(0x00ff00, metricsData.worker_errors_24h > 0 ? 1.0 : 0.1); s2.name = 'glow-errors'; s2.rotation.x = Math.PI / 2; s2.rotation.y = Math.PI / 3; group.add(s2);
-    const s3 = createGlow(0xff0000, metricsData.blocked_403 > 0 ? 1.0 : 0.1); s3.name = 'glow-403'; s3.rotation.x = Math.PI / 2; group.add(s3);
     return group;
   };
 
@@ -99,7 +84,7 @@ export default function SecurityGlobe({ geoData, focusCoords, focusCountry, metr
       const ratio = (bucket.count || 0) / max;
       const h = Math.max(0.05, ratio) * canvas.height * 0.9 + canvas.height * 0.05;
       const grad = ctx.createLinearGradient(0, canvas.height, 0, canvas.height - h);
-      grad.addColorStop(0, 'rgba(255, 0, 60, 1)'); grad.addColorStop(1, 'rgba(255, 0, 60, 0)');
+      grad.addColorStop(0, 'rgba(168, 85, 247, 1)'); grad.addColorStop(1, 'rgba(168, 85, 247, 0)');
       ctx.fillStyle = grad;
       ctx.fillRect(i * w + 2, canvas.height - h, w - 4, h);
     }
@@ -145,27 +130,7 @@ export default function SecurityGlobe({ geoData, focusCoords, focusCountry, metr
     return new THREE.Group();
   };
 
-  const updateObject = (obj, d) => {
-    // Мигание вынесено в отдельный цикл requestAnimationFrame для плавности
-  };
-
-  useEffect(() => {
-    let animId;
-    const animate = () => {
-      if (timelineObjRef.current && timelineObjRef.current.userData.spinner) {
-        const spinner = timelineObjRef.current.userData.spinner;
-        const time = performance.now() * 0.001;
-        const opacity = 0.6 + Math.sin(time * 4) * 0.3;
-        if (spinner.children[0]) spinner.children[0].material.opacity = opacity;
-      }
-      animId = requestAnimationFrame(animate);
-    };
-    animate();
-    return () => cancelAnimationFrame(animId);
-  }, []);
-
-    // Мигание вынесено в отдельный цикл requestAnimationFrame для плавности
-  };
+  const updateObject = (obj, d) => {};
 
   useEffect(() => {
     let animId;
@@ -249,14 +214,13 @@ export default function SecurityGlobe({ geoData, focusCoords, focusCountry, metr
       return;
     }
     const spawnWave = () => {
-      // Заменяем массив целиком, чтобы старые волны не наслаивались
       setScannerRings([{ ...scannerRing, id: Date.now() }]);
     };
     spawnWave();
     const interval = setInterval(spawnWave, 5000);
     return () => {
       clearInterval(interval);
-      setScannerRings([]); // Гарантированно чистим при выключении
+      setScannerRings([]);
     };
   }, [layers.shield]);
 
@@ -269,7 +233,6 @@ export default function SecurityGlobe({ geoData, focusCoords, focusCountry, metr
 
     const spawnBurst = () => {
       const baseId = Date.now();
-      // Очищаем старые таймеры перед новым залпом (фикс утечки)
       activeTimeouts.forEach(clearTimeout);
       activeTimeouts = [];
 
@@ -277,7 +240,6 @@ export default function SecurityGlobe({ geoData, focusCoords, focusCountry, metr
         activeTimeouts.push(setTimeout(() => {
           setPointsRings(prev => {
             const now = Date.now();
-            // Очищаем старые кольца прямо в момент обновления (фикс утечки)
             const recent = prev.filter(r => {
               const ts = parseInt(r.id.split('-')[0]);
               return now - ts < 2500;
@@ -333,25 +295,15 @@ export default function SecurityGlobe({ geoData, focusCoords, focusCountry, metr
           atmosphereColor={layers.atmosphere ? "#a855f7" : "rgba(0,0,0,0)"}
           atmosphereAltitude={0.15}
 
-        <Globe
-          ref={globeEl}
-          width={dimensions.width}
-          height={dimensions.height}
-          globeMaterial={globeMaterial}
-          backgroundColor="rgba(0,0,0,0)"
-
-          atmosphereColor={layers.atmosphere ? "#a855f7" : "rgba(0,0,0,0)"}
-          atmosphereAltitude={0.15}
-
           customLayerData={customLayerData}
           customThreeObject={createObject}
           customThreeObjectUpdate={updateObject}
 
           pointsData={layers.threats ? pointsData : []}
-        onPointClick={(point) => onCountryClick(point.name)}
+          onPointClick={(point) => onCountryClick(point.name)}
           pointsMerge={false}
           pointAltitude={(d) => { const MIN_HEIGHT = 0.01; const MAX_HEIGHT = 0.1; const MIN_ALT = 0.1; const MAX_ALT = 4.5; const t = Math.max(0, Math.min(1, (altitude - MIN_ALT) / (MAX_ALT - MIN_ALT))); return MIN_HEIGHT + t * (MAX_HEIGHT - MIN_HEIGHT); }}
-        pointsTransitionDuration={0}
+          pointsTransitionDuration={0}
           pointRadius={(d) => { const MIN_SIZE = 0.01; const MAX_SIZE = 0.7; const MIN_ALT = 0.1; const MAX_ALT = 4.5; const t = Math.max(0, Math.min(1, (altitude - MIN_ALT) / (MAX_ALT - MIN_ALT))); return d.size * (MIN_SIZE + t * (MAX_SIZE - MIN_SIZE)); }}
           pointColor="color"
           pointLabel={({ name, count }) => `<b>${name}</b>: ${count} requests`}
@@ -369,4 +321,3 @@ export default function SecurityGlobe({ geoData, focusCoords, focusCountry, metr
     </div>
   );
 }
-
