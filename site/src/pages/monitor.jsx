@@ -103,9 +103,6 @@ export default function MonitorPage() {
   } 
   // Если выбрана страна — фильтруем пути
   else if (focusCountry) {
-    const countryTotal = baseCountries.find(c => c.country === focusCountry);
-    if (countryTotal) displayGeoData = [countryTotal];
-    
     filteredPaths = basePaths.filter(item => {
       const corr = path_data.correlations[item.path];
       return corr && corr[focusCountry];
@@ -187,8 +184,8 @@ export default function MonitorPage() {
               <div style={{ position: 'absolute', top: '20px', left: '20px', zIndex: 10, display: 'flex', flexDirection: 'column', gap: '9px', fontFamily: 'JetBrains Mono, monospace', fontSize: '10px', color: '#888', userSelect: 'none' }}>
                 {[
                         { key: 'threats', label: 'Events', color: '#ff8c00' },
-      { key: 'shield', label: 'Defense In Depth', color: '#00ff00' },
-      { key: 'timeline', label: '24H Traffic Timeline', color: '#ff2a6d' }
+      { key: 'shield', label: 'Defense In Depth', color: '#0000ff' },
+      { key: 'timeline', label: '24H Traffic Timeline', color: '#a855f7' }
                 ].map(item => (
                   <div key={item.key} style={legendItemStyle(layers[item.key])} onClick={() => toggleLayer(item.key)}>
                     <svg width="8" height="8" style={{ marginRight: '6px', flexShrink: 0 }}>
@@ -209,7 +206,7 @@ export default function MonitorPage() {
               <BrowserOnly fallback={<div style={{ background: '#000', height: '100%' }} />}>
                 {() => (
                   <Suspense fallback={<div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%', color: '#c00030', fontFamily: 'JetBrains Mono, monospace' }}>Loading 3D Globe...</div>}>
-                    <SecurityGlobe geoData={displayGeoData} focusCoords={focusCoords} focusCountry={focusCountry} metrics={security_metrics} timeline={timeline} layers={layers} />
+                    <SecurityGlobe geoData={displayGeoData} focusCoords={focusCoords} focusCountry={focusCountry} metrics={security_metrics} timeline={timeline} layers={layers} onCountryClick={(country) => { if (focusCountry === country) { setFocusCountry(null); setFocusCoords(null); } else { setFocusCountry(country); setFocusCoords({ lat: countryCoords[country][0], lng: countryCoords[country][1] }); } setFocusPath(null); }} />
                   </Suspense>
                 )}
               </BrowserOnly>
