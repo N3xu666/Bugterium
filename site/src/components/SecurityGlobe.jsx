@@ -233,6 +233,7 @@ export default function SecurityGlobe({ geoData, focusCoords, focusCountry, metr
 
     const spawnBurst = () => {
       const baseId = Date.now();
+      // Очищаем старые таймеры перед новым залпом (фикс утечки)
       activeTimeouts.forEach(clearTimeout);
       activeTimeouts = [];
 
@@ -240,6 +241,7 @@ export default function SecurityGlobe({ geoData, focusCoords, focusCountry, metr
         activeTimeouts.push(setTimeout(() => {
           setPointsRings(prev => {
             const now = Date.now();
+            // Очищаем старые кольца прямо в момент обновления (фикс утечки)
             const recent = prev.filter(r => {
               const ts = parseInt(r.id.split('-')[0]);
               return now - ts < 2500;
