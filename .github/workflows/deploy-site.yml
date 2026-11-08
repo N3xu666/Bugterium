@@ -1,17 +1,15 @@
 name: Deploy Site
 
 on:
-  push:
-    branches:
-      - main
-    paths:
-      - 'site/**'
-      - 'WRITEUPS/**'
-      - '.github/workflows/deploy-site.yml'
+  workflow_run:
+    workflows: [Validate]
+    types: [completed]
+    branches: [main]
   workflow_dispatch:
 
 jobs:
   deploy:
+    if: ${{ github.event_name == 'workflow_dispatch' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push') }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
