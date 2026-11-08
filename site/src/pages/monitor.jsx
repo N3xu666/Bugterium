@@ -16,8 +16,6 @@ export default function MonitorPage() {
   const [activeTab, setActiveTab] = useState('countries');
   const [viewMode, setViewMode] = useState('traffic');
   const [onlyBots, setOnlyBots] = useState(false);
-  const [viewMode, setViewMode] = useState('traffic');
-  const [onlyBots, setOnlyBots] = useState(false);
 
   const [focusCoords, setFocusCoords] = useState(null);
   const [focusCountry, setFocusCountry] = useState(null);
@@ -95,9 +93,7 @@ export default function MonitorPage() {
   let filteredCountries = baseCountries;
 
   const botRe = /bot|crawl|spider|slurp|curl|wget|python|go-http|java\/|okhttp|axios|node-fetch|headless|phantom|puppet|selenium|playwright|masscan|nmap|nikto|sqlmap|zgrab|censys|shodan|expanse|nuclei|httpx|feroxbuster|gobuster|dirb|dirbuster|ffuf/i;
-  const filteredAgents = onlyBots ? user_agent_data[viewMode].filter(a => botRe.test(a.ua)) : user_agent_data[viewMode];
 
-  const botRe = /bot|crawl|spider|slurp|curl|wget|python|go-http|java\/|okhttp|axios|node-fetch|headless|phantom|puppet|selenium|playwright|masscan|nmap|nikto|sqlmap|zgrab|censys|shodan|expanse|nuclei|httpx|feroxbuster|gobuster|dirb|dirbuster|ffuf/i;
   const filteredAgents = onlyBots ? user_agent_data[viewMode].filter(a => botRe.test(a.ua)) : user_agent_data[viewMode];
 
   // Если выбран путь — фильтруем страны
@@ -187,7 +183,6 @@ export default function MonitorPage() {
             </header>
             <main className="stage">
               {/* ИНТЕРАКТИВНАЯ ЛЕГЕНДА */}
-              <div style={{ position: 'absolute', top: '20px', left: '20px', zIndex: 10, display: 'flex', flexDirection: 'column', gap: '9px', fontFamily: 'JetBrains Mono, monospace', fontSize: '10px', color: '#888', userSelect: 'none' }}>
               <div style={{ position: 'absolute', top: '20px', left: '20px', zIndex: 10, display: 'flex', flexDirection: 'column', gap: '9px', fontFamily: 'JetBrains Mono, monospace', fontSize: '10px', color: '#888', userSelect: 'none' }}>
                 {[
                         { key: 'threats', label: 'Events', color: '#ff8c00' },
@@ -308,7 +303,6 @@ export default function MonitorPage() {
 
             {/* Вкладка АГЕНТЫ */}
             {activeTab === 'agents' && filteredAgents.slice(0, 10).map((item, idx) => (
-            {activeTab === 'agents' && filteredAgents.slice(0, 10).map((item, idx) => (
               <div key={idx} className={styles.threatCard} title={item.ua}>
                 <div className={styles.threatHeader}>
                   <div className={styles.threatId} style={{ fontSize: '11px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '200px' }}>{item.ua}</div>
@@ -336,6 +330,8 @@ export default function MonitorPage() {
           </span>
         </div>
 
+          </div>
+        </div>
       </div>
     </Layout>
   );
