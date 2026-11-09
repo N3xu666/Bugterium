@@ -21,8 +21,10 @@ while the machines are still active on Hack The Box (per HTB ToS).
 | 01 | Layover | Medium | ✅ completed · ⏳ writeup pending |
 | 02 | Touch | Medium | ✅ completed · ⏳ writeup pending |
 | 03 | Stream | Medium | ✅ completed · ⏳ writeup pending |
-| 04 | Autopilot | Medium | ✅ completed · ⏳ writeup pending |
+| 04 | Autopilot | Insane | ✅ completed · ⏳ writeup pending |
 | 05 | DutyBound | Medium | ✅ completed · ⏳ writeup pending |
+| 06 | Takeoff | Hard | ✅ completed · ⏳ writeup pending |
+| 07 | Unclaimed | Medium | ✅ completed · ⏳ writeup pending |
 
 ## Archive
 

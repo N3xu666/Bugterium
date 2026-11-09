@@ -69,7 +69,7 @@ Get-ChildItem -Recurse -Filter *.md |
         Write-Host "[SKIP] Note exists: $($_.Name)" -ForegroundColor DarkGray
         return
     }
-    $pattern = '(?s)(```text.*?```)\r?\n'
+    $pattern = '(?ms)(^## Attack Chain\s*\r?\n\s*\r?\n```text\b.*?```)\r?\n'
     if ($content -match $pattern) {
         $new = $content -replace $pattern, "`$1`n`n$note`n"
         [System.IO.File]::WriteAllText($_.FullName, $new, $utf8WithBom)

