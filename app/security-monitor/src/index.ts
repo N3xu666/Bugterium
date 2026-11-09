@@ -1,4 +1,4 @@
-﻿export default {
+export default {
   async fetch(request: Request, env: any, ctx: ExecutionContext): Promise<Response> {
     const origin = request.headers.get("Origin") || "";
     const allowedOrigins = ["https://bugterium.pages.dev", "http://localhost:3000"];
@@ -64,7 +64,10 @@
       const data: any = await response.json();
 
       if (data.errors) {
-        return new Response(JSON.stringify({ status: "error", details: data.errors }), {
+        const healthPercent = totalStatusCount > 0 ? ((success2xx / totalStatusCount) * 100).toFixed(1) : '100.0';
+      const statusBreakdown = Object.entries(statusMap).map(([code, count]) => ({ code: Number(code), count })).sort((a, b) => b.count - a.count);
+
+      return new Response(JSON.stringify({ status: "error", details: data.errors }), {
           status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
@@ -104,6 +107,11 @@
 
       let blocked403 = 0;
       let blocked429 = 0;
+      let clientErrors4xx = 0;
+      let serverErrors5xx = 0;
+      let success2xx = 0;
+      let totalStatusCount = 0;
+      const statusMap: Record<number, number> = { 400: 0, 401: 0, 403: 0, 404: 0, 405: 0, 413: 0, 414: 0, 422: 0, 429: 0, 451: 0, 500: 0, 501: 0, 502: 0, 503: 0, 504: 0, 505: 0 };
       const trafficByCountry: Record<string, number> = {};
       const attacksByCountry: Record<string, number> = {};
 
@@ -113,6 +121,15 @@
 
         if (status === 403) blocked403 += group.count;
         if (status === 429) blocked429 += group.count;
+
+        totalStatusCount += group.count;
+        statusMap[status] = (statusMap[status] || 0) + group.count;
+
+        if (status >= 200 && status < 400) success2xx += group.count;
+        if (status >= 400 && status < 500) {
+          clientErrors4xx += group.count;
+        }
+        if (status >= 500) serverErrors5xx += group.count;
 
         if (country !== "Unknown") {
           trafficByCountry[country] = (trafficByCountry[country] || 0) + group.count;
@@ -170,6 +187,9 @@
         attacks: mapAndSort(uaAttacks)
       };
 
+      const healthPercent = totalStatusCount > 0 ? ((success2xx / totalStatusCount) * 100).toFixed(1) : '100.0';
+      const statusBreakdown = Object.entries(statusMap).map(([code, count]) => ({ code: Number(code), count })).sort((a, b) => b.count - a.count);
+
       return new Response(JSON.stringify({
         status: "ok",
         timestamp: new Date().toISOString(),
@@ -177,8 +197,12 @@
           worker_requests_24h: totalRequests,
           worker_errors_24h: totalErrors,
           blocked_403: blocked403,
-          blocked_429: blocked429
+          blocked_429: blocked429,
+          client_errors_4xx: clientErrors4xx,
+          server_errors_5xx: serverErrors5xx,
+          health_percent: healthPercent
         },
+        status_breakdown: statusBreakdown,
         geo_data: countryData,
         attacks_by_country: attackCountryData,
         timeline: timeline,
@@ -193,6 +217,9 @@
       });
 
     } catch (error: any) {
+      const healthPercent = totalStatusCount > 0 ? ((success2xx / totalStatusCount) * 100).toFixed(1) : '100.0';
+      const statusBreakdown = Object.entries(statusMap).map(([code, count]) => ({ code: Number(code), count })).sort((a, b) => b.count - a.count);
+
       return new Response(JSON.stringify({ status: "error", message: error.message }), {
         status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
