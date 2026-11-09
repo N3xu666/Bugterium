@@ -236,7 +236,7 @@ the local `Administrators` group.
     secretsdump.py -sam SAM -system SYSTEM LOCAL
 
     # Expected output:
-    # Administrator:500:aad3b435b51404eeaad3b435b51404ee:<NTLM_HASH>:::
+    # Administrator:500:<LM_HASH_EMPTY>:<NTLM_HASH>:::
     # (LM hash is <LM_HASH_EMPTY> = empty)
 
 **SeDebugPrivilege - dump LSASS:**
