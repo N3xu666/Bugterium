@@ -80,7 +80,23 @@ export default function MonitorPage() {
     );
   }
 
-  const { security_metrics, geo_data, attacks_by_country, timeline, path_data, user_agent_data } = data;
+  const { security_metrics, geo_data, attacks_by_country, timeline, path_data, user_agent_data, status_breakdown } = data;
+
+  const renderBreakdown = (prefix, color) => {
+    if (!status_breakdown) return null;
+    const filtered = status_breakdown.filter(s => s.code >= prefix * 100 && s.code < (prefix + 1) * 100).sort((a, b) => a.code - b.code);
+    if (filtered.length === 0) return <div style={{ fontSize: '10px', color: '#666', marginTop: '5px' }}>No errors</div>;
+    return (
+      <div style={{ display: 'grid', gridAutoFlow: 'column', gridTemplateRows: 'repeat(' + Math.ceil(filtered.length / 2) + ', auto)', gap: '4px 15px', marginTop: '5px' }}>
+        {filtered.map(s => (
+          <div key={s.code} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: color, borderBottom: '1px solid #222', paddingBottom: '2px', paddingLeft: '4px', paddingRight: '4px' }}>
+            <span>{s.code}</span>
+            <span>{s.count}</span>
+          </div>
+        ))}
+      </div>
+    );
+  };
 
   const baseCountries = viewMode === 'attacks' ? attacks_by_country : geo_data;
   const basePaths = viewMode === 'attacks' ? path_data.attacks : path_data.benign;
@@ -144,20 +160,28 @@ export default function MonitorPage() {
         {/* ЛЕВАЯ КОЛОНКА */}
         <div className={styles.leftCol}>
           <div className={styles.card}>
-            <div className={styles.cardLabel}>REQUESTS (24H)</div>
-            <div className={styles.cardDesc} style={{ fontSize: '28px', color: '#fff', marginTop: '10px', fontWeight: 'bold' }}>{security_metrics.worker_requests_24h}</div>
+            <div className={styles.cardLabel} style={{ fontSize: "16px" }}>REQUESTS (24H)</div>
+            <div className={styles.cardDesc} style={{ fontSize: "28px", color: "#ff8c00", marginTop: "10px", fontWeight: "bold" }}>{security_metrics.worker_requests_24h}</div>
           </div>
           <div className={styles.card}>
-            <div className={styles.cardLabel}>ERRORS</div>
-            <div className={styles.cardDesc} style={{ fontSize: '28px', color: security_metrics.worker_errors_24h > 0 ? '#ff003c' : '#00ff00', marginTop: '10px', fontWeight: 'bold' }}>{security_metrics.worker_errors_24h}</div>
+            <div className={styles.cardLabel}>CLIENT ERRORS</div>
+            <div className={styles.cardDesc} style={{ fontSize: '28px', color: security_metrics.client_errors_4xx > 0 ? '#ff8c00' : '#fff', marginTop: '10px', fontWeight: 'bold', borderBottom: '1px solid #222', paddingBottom: '10px', paddingLeft: '4px' }}>{security_metrics.client_errors_4xx || 0}</div>
+            <div style={{ marginTop: '10px' }}>{renderBreakdown(4, '#ff8c00')}</div>
           </div>
           <div className={styles.card}>
-            <div className={styles.cardLabel}>BLOCKED (403)</div>
-            <div className={styles.cardDesc} style={{ fontSize: '28px', color: security_metrics.blocked_403 > 0 ? '#c00030' : '#fff', marginTop: '10px', fontWeight: 'bold' }}>{security_metrics.blocked_403}</div>
+            <div className={styles.cardLabel}>SERVER ERRORS</div>
+            <div className={styles.cardDesc} style={{ fontSize: '28px', color: security_metrics.server_errors_5xx > 0 ? '#ff8c00' : '#fff', marginTop: '10px', fontWeight: 'bold', borderBottom: '1px solid #222', paddingBottom: '10px', paddingLeft: '4px' }}>{security_metrics.server_errors_5xx || 0}</div>
+            <div style={{ marginTop: '10px' }}>{renderBreakdown(5, '#ff8c00')}</div>
           </div>
-          <div className={styles.card}>
-            <div className={styles.cardLabel}>RATE LIMITED</div>
-            <div className={styles.cardDesc} style={{ fontSize: '28px', color: '#fff', marginTop: '10px', fontWeight: 'bold' }}>{security_metrics.blocked_429}</div>
+          <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
+            <div className={styles.card} style={{ flex: 1, minWidth: 0, textAlign: 'center' }}>
+              <div className={styles.cardLabel} style={{ fontSize: '12px', letterSpacing: '0.05em', margin: 0 }}>LEGITIMATE</div>
+              <div className={styles.cardDesc} style={{ fontSize: '28px', color: '#ff8c00', marginTop: '4px', fontWeight: 'bold' }}>[ {security_metrics.health_percent || '100.0'}% ]</div>
+            </div>
+            <div className={styles.card} style={{ flex: 1, minWidth: 0, textAlign: 'center' }}>
+              <div className={styles.cardLabel} style={{ fontSize: '12px', letterSpacing: '0.05em', margin: 0 }}>SUSPICIOUS</div>
+              <div className={styles.cardDesc} style={{ fontSize: '28px', color: '#ff8c00', marginTop: '4px', fontWeight: 'bold' }}>[ {(100 - parseFloat(security_metrics.health_percent || '100.0')).toFixed(1)}% ]</div>
+            </div>
           </div>
         </div>
 
@@ -173,7 +197,7 @@ export default function MonitorPage() {
                   </button>
                 </span>
               </nav>
-              <span className="status">{security_metrics.worker_requests_24h} REQUESTS / {security_metrics.blocked_403} BLOCKED</span>
+            <span className="status">{security_metrics.worker_requests_24h} REQUESTS / {security_metrics.blocked_403} BLOCKED</span>
             </header>
             <main className="stage">
               {/* ИНТЕРАКТИВНАЯ ЛЕГЕНДА */}
@@ -251,7 +275,8 @@ export default function MonitorPage() {
           <div className={styles.threatList}>
             {/* Вкладка СТРАНЫ */}
             {activeTab === 'countries' && filteredCountries.slice(0, 10).map((item, idx) => {
-              const hasCoords = !!countryCoords[item.country];
+              const hasCoords = item.country !== 'XX' && !!countryCoords[item.country];
+              const displayCountry = item.country === 'XX' ? 'UNKNOWN' : item.country;
               const isFocused = focusCountry === item.country;
               return (
                 <div key={idx} className={styles.threatCard} style={{ cursor: hasCoords ? 'pointer' : 'default', opacity: hasCoords ? (focusCountry && !isFocused ? 0.4 : 1) : 0.5, borderColor: isFocused ? '#c00030' : undefined, backgroundColor: isFocused ? 'rgba(192, 0, 48, 0.1)' : undefined, transition: 'all 0.3s ease' }} onClick={() => {
@@ -261,7 +286,7 @@ export default function MonitorPage() {
                   }
                 }}>
                   <div className={styles.threatHeader}>
-                    <div className={styles.threatId} style={{ color: isFocused ? '#fff' : undefined }}>{item.country}</div>
+                    <div className={styles.threatId} style={{ color: isFocused ? '#fff' : undefined }}>{displayCountry}</div>
                     <div className={styles.threatRight}><div className={styles.threatCvss} style={{ color: isFocused ? '#fff' : undefined }}>{item.count}</div></div>
                   </div>
                 </div>
