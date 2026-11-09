@@ -1,4 +1,4 @@
-name: Validate
+﻿name: Validate
 
 on:
   push:
@@ -153,11 +153,10 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITLEAKS_CONFIG: .gitleaks.toml
   audit:
-    name: Run audit.ps1 (informational)
+    name: Run audit.ps1 (blocking)
     runs-on: windows-latest
-    # NON-BLOCKING. Deepest check layer (21 sections), informational only.
+    # BLOCKING. Deepest check layer (21 sections). Fails the PR on any FAIL.
     # Local-state checks skipped via -SkipLocalChecks.
-    continue-on-error: true
 
     steps:
       - name: Checkout repository
