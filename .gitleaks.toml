@@ -31,6 +31,10 @@ keywords = []
 description = "Global ignore for internal workflow files and test fixtures"
 paths = [
   '''tests/fixtures/''',
+  '''test/fixtures/''',
+  '''app/security-monitor/test/''',
+  '''app/security-monitor/test/.*''',
+  '''\.test\.ts$''',
   '''_WORKFLOW\.md$''',
   '''PROMPT_NEXT_SESSION\.txt$''',
   '''masking-dict\.ps1$''',

@@ -1,0 +1,22 @@
+{
+    "name":  "bugterium-security-monitor",
+    "version":  "0.1.0",
+    "private":  true,
+    "type":  "module",
+    "scripts":  {
+                    "dev":  "wrangler dev",
+                    "deploy":  "wrangler deploy",
+                    "test":  "vitest run --max-workers=1 --no-isolate",
+                    "typecheck":  "tsc --noEmit"
+                },
+    "dependencies":  {
+
+                     },
+    "devDependencies":  {
+                            "@cloudflare/vitest-plugin":  "^1.5.1",
+                            "@cloudflare/workers-types":  "^5.20261102.1",
+                            "typescript":  "^5.6.0",
+                            "vitest":  "^5.1.0",
+                            "wrangler":  "^4.156.2"
+                        }
+}

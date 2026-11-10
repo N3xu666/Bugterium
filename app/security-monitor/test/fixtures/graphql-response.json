@@ -1,0 +1,55 @@
+{
+  "data": {
+    "viewer": {
+      "accounts": [
+        {
+          "workersInvocationsAdaptive": [
+            { "sum": { "requests": 1000, "errors": 2 } },
+            { "sum": { "requests": 500, "errors": 1 } }
+          ],
+          "byStatusCountry": [
+            { "count": 500, "dimensions": { "edgeResponseStatus": 200, "clientCountryName": "US" } },
+            { "count": 200, "dimensions": { "edgeResponseStatus": 200, "clientCountryName": "AZ" } },
+            { "count": 50,  "dimensions": { "edgeResponseStatus": 304, "clientCountryName": "US" } },
+            { "count": 10,  "dimensions": { "edgeResponseStatus": 403, "clientCountryName": "NL" } },
+            { "count": 7,   "dimensions": { "edgeResponseStatus": 404, "clientCountryName": "US" } },
+            { "count": 3,   "dimensions": { "edgeResponseStatus": 500, "clientCountryName": "AZ" } },
+            { "count": 2,   "dimensions": { "edgeResponseStatus": 504, "clientCountryName": "US" } },
+            { "count": 20,  "dimensions": { "edgeResponseStatus": 200, "clientCountryName": null } }
+          ],
+          "byHour": [
+            { "count": 100, "dimensions": { "datetimeHour": "2026-11-10T14:00:00Z" } },
+            { "count": 200, "dimensions": { "datetimeHour": "2026-11-10T15:00:00Z" } },
+            { "count": 150, "dimensions": { "datetimeHour": "2026-11-10T16:00:00Z" } }
+          ],
+          "byPath": [
+            { "count": 400, "dimensions": { "clientRequestPath": "/" } },
+            { "count": 300, "dimensions": { "clientRequestPath": "/monitor" } },
+            { "count": 7,   "dimensions": { "clientRequestPath": "/wp-login.php" } },
+            { "count": 3,   "dimensions": { "clientRequestPath": "/.env" } },
+            { "count": 2,   "dimensions": { "clientRequestPath": "/placeholder-path" } },
+            { "count": 1,   "dimensions": { "clientRequestPath": null } }
+          ],
+          "byPathCountry": [
+            { "count": 300, "dimensions": { "clientRequestPath": "/", "clientCountryName": "US" } },
+            { "count": 100, "dimensions": { "clientRequestPath": "/", "clientCountryName": "AZ" } },
+            { "count": 200, "dimensions": { "clientRequestPath": "/monitor", "clientCountryName": "US" } },
+            { "count": 100, "dimensions": { "clientRequestPath": "/monitor", "clientCountryName": "AZ" } },
+            { "count": 7,   "dimensions": { "clientRequestPath": "/wp-login.php", "clientCountryName": "NL" } },
+            { "count": 3,   "dimensions": { "clientRequestPath": "/.env", "clientCountryName": "US" } },
+            { "count": 5,   "dimensions": { "clientRequestPath": "/", "clientCountryName": null } }
+          ],
+          "byUserAgent": [
+            { "count": 700, "dimensions": { "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120.0", "edgeResponseStatus": 200 } },
+            { "count": 200, "dimensions": { "userAgent": "curl/8.0", "edgeResponseStatus": 200 } },
+            { "count": 100, "dimensions": { "userAgent": "Mozilla/5.0 (compatible; Googlebot/2.1)", "edgeResponseStatus": 200 } },
+            { "count": 7,   "dimensions": { "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120.0", "edgeResponseStatus": 404 } },
+            { "count": 3,   "dimensions": { "userAgent": "curl/8.0", "edgeResponseStatus": 403 } },
+            { "count": 2,   "dimensions": { "userAgent": "sqlmap/1.7", "edgeResponseStatus": 403 } },
+            { "count": 5,   "dimensions": { "userAgent": null, "edgeResponseStatus": 200 } }
+          ]
+        }
+      ]
+    }
+  }
+}
