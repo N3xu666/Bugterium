@@ -9,6 +9,7 @@ const SecurityGlobe = lazy(() => import('../components/SecurityGlobe'));
 
 export default function MonitorPage() {
   const [data, setData] = useState(null);
+  const [errorMsg, setErrorMsg] = useState(null);
   const [isLive, setIsLive] = useState(true);
   const [lastSync, setLastSync] = useState('0000-00-00 00:00 GMT+4');
   const [displaySync, setDisplaySync] = useState('0000-00-00 00:00 GMT+4');
@@ -37,15 +38,20 @@ export default function MonitorPage() {
           : 'https://bugterium-security-monitor.bugterium.workers.dev';
         const response = await fetch(apiUrl);
         const result = await response.json();
-        if (result.status === 'ok') {
+        if (response.ok && result.status === 'ok') {
           setData(result);
+          setErrorMsg(null);
           setIsLive(true);
           const now = new Date();
           const gmt4 = new Date(now.getTime() + (4 * 60 * 60 * 1000));
           const formatted = gmt4.toISOString().replace('T', ' ').substring(0, 16) + ' GMT+4';
           setLastSync(formatted);
+        } else {
+          setErrorMsg(`WAITING FOR SNAPSHOT (CODE: ${result.code || response.status})...`);
+          setIsLive(false);
         }
       } catch (error) {
+        setErrorMsg('API UNREACHABLE. RETRYING...');
         setIsLive(false);
       }
     };
@@ -74,7 +80,7 @@ export default function MonitorPage() {
     return (
       <Layout title="Security Monitor" description="Live Threat Intelligence" noFooter={true}>
         <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', color: '#c00030', fontFamily: 'JetBrains Mono, monospace', background: '#000' }}>
-          INITIALIZING SECURITY FEED...
+          {errorMsg || 'INITIALIZING SECURITY FEED...'}
         </div>
       </Layout>
     );
