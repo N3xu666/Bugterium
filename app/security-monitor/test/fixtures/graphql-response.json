@@ -47,7 +47,14 @@
             { "count": 3,   "dimensions": { "userAgent": "curl/8.0", "edgeResponseStatus": 403 } },
             { "count": 2,   "dimensions": { "userAgent": "sqlmap/1.7", "edgeResponseStatus": 403 } },
             { "count": 5,   "dimensions": { "userAgent": null, "edgeResponseStatus": 200 } }
-          ]
+          ],
+        "byHost": [
+          { "count": 350, "dimensions": { "clientRequestHTTPHost": "bugterium.pages.dev" } },
+          { "count": 200, "dimensions": { "clientRequestHTTPHost": "bugterium-monitor.workers.dev" } },
+          { "count": 100, "dimensions": { "clientRequestHTTPHost": "bugterium-bff.workers.dev" } },
+          { "count": 15,  "dimensions": { "clientRequestHTTPHost": "external.api.example.com" } },
+          { "count": 5,   "dimensions": { "clientRequestHTTPHost": null } }
+        ]
         }
       ]
     }

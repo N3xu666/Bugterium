@@ -2,8 +2,8 @@
 // Phase 1 (Pass 193): separates collection (cron -> KV) from serving (fetch -> KV).
 // Contract v2 is additive on v1: all v1 keys preserved verbatim via aggregate().
 
-import type { GraphQLAccountData, SnapshotMeta, SnapshotResponse } from './types';
-import { aggregate } from './aggregate';
+import type { GraphQLAccountData, SnapshotMeta, SnapshotResponse, AggregateTrafficConfig } from './types';
+import { aggregate, aggregateTraffic, aggregateProbes } from './aggregate';
 
 const SCHEMA_VERSION = '2.0' as const;
 
@@ -13,6 +13,8 @@ export interface BuildSnapshotOptions {
   stale?: boolean;
   sampled?: boolean;
   quotaWarning?: boolean;
+  // M-03 (v2): optional; unset => 	raffic omitted from SnapshotResponse.
+  trafficConfig?: AggregateTrafficConfig;
 }
 
 export function buildSnapshot(
@@ -28,11 +30,17 @@ export function buildSnapshot(
     sampled: options.sampled ?? false,
     quota_warning: options.quotaWarning ?? false,
   };
-  return {
+  const result: SnapshotResponse = {
     ...base,
     schema_version: SCHEMA_VERSION,
     meta,
   };
+  if (options.trafficConfig) {
+    result.traffic = aggregateTraffic(account, options.trafficConfig);
+  }
+  // M-04 (v2): probes always built (no config needed). Additive.
+  result.probes = aggregateProbes(account);
+  return result;
 }
 
 // Preserves generated_at (data collection time) — only sets stale flag.

@@ -15,7 +15,7 @@ const GRAPHQL_QUERY = `
         workersInvocationsAdaptive(limit: 100, filter: {datetime_geq: $startTime}) {
           sum { requests errors }
         }
-        byStatusCountry: httpRequestsAdaptiveGroups(limit: 100, filter: {datetime_geq: $startTime}) {
+        byStatusCountry: httpRequestsAdaptiveGroups(limit: 100, filter: {datetime_geq: $startTime}, orderBy: [count_DESC]) {
           count
           dimensions { edgeResponseStatus clientCountryName }
         }
@@ -27,13 +27,17 @@ const GRAPHQL_QUERY = `
           count
           dimensions { clientRequestPath }
         }
-        byPathCountry: httpRequestsAdaptiveGroups(limit: 1000, filter: {datetime_geq: $startTime}) {
+        byPathCountry: httpRequestsAdaptiveGroups(limit: 1000, filter: {datetime_geq: $startTime}, orderBy: [count_DESC]) {
           count
           dimensions { clientRequestPath clientCountryName }
         }
         byUserAgent: httpRequestsAdaptiveGroups(limit: 50, filter: {datetime_geq: $startTime}, orderBy: [count_DESC]) {
           count
           dimensions { userAgent edgeResponseStatus }
+        }
+        byHost: httpRequestsAdaptiveGroups(limit: 100, filter: {datetime_geq: $startTime}, orderBy: [count_DESC]) {
+          count
+          dimensions { clientRequestHTTPHost }
         }
       }
     }
