@@ -3,7 +3,7 @@ import { getCookie, deleteCookie } from 'hono/cookie';
 import { z } from 'zod';
 import { verifyJwt } from '../auth/jwt';
 import type { Bindings } from '../env';
-import { sha256 } from '../lib/crypto';
+import { hmacSha256 } from '../lib/crypto';
 import { logAuthEvent } from '../auth/session';
 import { parseJsonBody } from '../lib/validate';
 
@@ -25,7 +25,7 @@ logout.post('/', async (c) => {
       // Delete session from DB
       await c.env.DB.prepare('DELETE FROM sessions WHERE id = ?').bind(payload.sid).run();
       const ip = c.req.header('CF-Connecting-IP') || 'unknown';
-      const ipHash = await sha256(ip + c.env.IP_PEPPER);
+      const ipHash = await hmacSha256(ip, c.env.IP_PEPPER);
       await logAuthEvent(c.env.DB, Number(payload.sub), 'logout', ipHash);
     } catch {
       // Ignore invalid/expired tokens on logout

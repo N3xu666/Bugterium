@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
 import { setCookie, deleteCookie, getCookie } from 'hono/cookie';
 import type { Bindings } from '../env';
-import { generateRandomString, sha256 } from '../lib/crypto';
+import { generateRandomString, hmacSha256 } from '../lib/crypto';
 import { upsertUser, createSession, logAuthEvent } from './session';
 import { createJwt } from './jwt';
 import { AppError } from '../lib/errors';
@@ -85,7 +85,7 @@ oauth.get('/github/callback', async (c) => {
   const user = await upsertUser(c.env.DB, ghUser.id, ghUser.login, c.env.ADMIN_GITHUB_IDS || '');
   
   const ip = c.req.header('CF-Connecting-IP') || 'unknown';
-  const ipHash = await sha256(ip + c.env.IP_PEPPER);
+  const ipHash = await hmacSha256(ip, c.env.IP_PEPPER);
 
   const sessionId = await createSession(c.env.DB, user.id, ipHash);
   const jwt = await createJwt(user.id, sessionId, user.role, c.env.JWT_SIGNING_KEY);

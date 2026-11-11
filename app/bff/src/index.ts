@@ -2,7 +2,7 @@ import { Hono } from 'hono';
 import type { Bindings } from './env';
 import { securityHeaders } from './middleware/security';
 import { toErrorResponse, AppError } from './lib/errors';
-import { sha256 } from './lib/crypto';
+import { hmacSha256 } from './lib/crypto';
 import { logAuthEvent } from './auth/session';
 import { apiRateLimit } from './middleware/rateLimit';
 import oauth from './auth/oauth';
@@ -41,7 +41,7 @@ app.onError(async (err, c) => {
   if (c.req.path === '/auth/github/callback') {
     try {
       const ip = c.req.header('CF-Connecting-IP') || 'unknown';
-      const ipHash = await sha256(ip + c.env.IP_PEPPER);
+      const ipHash = await hmacSha256(ip, c.env.IP_PEPPER);
       await logAuthEvent(c.env.DB, null, 'login_fail', ipHash);
     } catch { /* never mask the original error */ }
   }
