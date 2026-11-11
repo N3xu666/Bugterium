@@ -87,7 +87,12 @@ export interface TrafficBreakdown {
   own_polling: number;
   bff_requests: number;
   other_http: number;
+  // @deprecated Pass 196 (M-03 tail): cannot compute reliably - Workers invocations
+  // and HTTP requests (incl. Pages static) are DIFFERENT datasets. Always 0.
+  // Use total_workers for the raw Worker invocation count. Kept for v2 contract compat.
   cron_invocations: number;
+  // Pass 196: raw Worker invocations from workersInvocationsAdaptive (cron + fetch combined).
+  total_workers: number;
   hosts: HostTrafficItem[];
 }
 

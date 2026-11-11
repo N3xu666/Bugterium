@@ -157,10 +157,11 @@ describe('aggregateTraffic() — M-03 (v2): host split', () => {
     expect(result.other_http).toBe(20);
   });
 
-  it('computes cron_invocations = totalWorkerRequests - totalHttp', () => {
+  it('cron_invocations is 0 (deprecated); total_workers = raw Worker invocations', () => {
     const result = aggregateTraffic(getAccount(), ALL_CONFIG);
-    // workersInvocationsAdaptive: 1000 + 500 = 1500; byHost total = 670
-    expect(result.cron_invocations).toBe(830);
+    // workersInvocationsAdaptive: 1000 + 500 = 1500; cron cannot be derived from byHost.
+    expect(result.cron_invocations).toBe(0);
+    expect(result.total_workers).toBe(1500);
   });
 
   it('hosts[] excludes null host and is sorted desc by count', () => {
@@ -174,13 +175,14 @@ describe('aggregateTraffic() — M-03 (v2): host split', () => {
     expect(result.hosts.find((h) => h.host === '')).toBeUndefined();
   });
 
-  it('empty config => site/own/bff = 0, other_http = 670, cron = 830', () => {
+  it('empty config => site/own/bff = 0, other_http = 670, cron = 0, total_workers = 1500', () => {
     const result = aggregateTraffic(getAccount(), {});
     expect(result.site_requests).toBe(0);
     expect(result.own_polling).toBe(0);
     expect(result.bff_requests).toBe(0);
     expect(result.other_http).toBe(670);
-    expect(result.cron_invocations).toBe(830);
+    expect(result.cron_invocations).toBe(0);
+    expect(result.total_workers).toBe(1500);
   });
 
   it('works with missing byHost (older snapshots)', () => {
@@ -188,7 +190,8 @@ describe('aggregateTraffic() — M-03 (v2): host split', () => {
     const result = aggregateTraffic(account, ALL_CONFIG);
     expect(result.site_requests).toBe(0);
     expect(result.other_http).toBe(0);
-    expect(result.cron_invocations).toBe(1500);
+    expect(result.cron_invocations).toBe(0);
+    expect(result.total_workers).toBe(1500);
     expect(result.hosts).toEqual([]);
   });
 });
