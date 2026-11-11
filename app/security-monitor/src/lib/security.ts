@@ -20,13 +20,13 @@ export interface GuardResult {
 }
 
 // Present on every response.
-// Note: Cache-Control is `no-store` in 0a.1 (direct GraphQL path).
-// Will switch to `public, max-age=30` in Phase 1 with KV snapshot.
+// Cache-Control: 30s public cache (Phase 1, Pass 193).
+// Snapshot lives in KV, refreshed by cron every 5 min — 30s cache is safe.
 export function baseHeaders(): Record<string, string> {
   return {
     'X-Content-Type-Options': 'nosniff',
     'Referrer-Policy': 'no-referrer',
-    'Cache-Control': 'no-store',
+    'Cache-Control': 'public, max-age=30',
     'Content-Security-Policy': "default-src 'none'",
     'Cross-Origin-Resource-Policy': 'cross-origin',
   };

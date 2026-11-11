@@ -12,6 +12,7 @@
 export interface Env {
   CF_ACCOUNT_ID: string;
   CF_API_TOKEN: string;
+  MONITOR_KV: KVNamespace;
 }
 
 // --- Response contract v1 ---
@@ -60,6 +61,20 @@ export interface UserAgentItem {
 export interface UserAgentData {
   traffic: UserAgentItem[];
   attacks: UserAgentItem[];
+}
+
+export interface SnapshotMeta {
+  generated_at: string;
+  window_start: string;
+  window_end: string;
+  stale: boolean;
+  sampled: boolean;
+  quota_warning: boolean;
+}
+
+export interface SnapshotResponse extends MonitorResponse {
+  schema_version: '2.0';
+  meta: SnapshotMeta;
 }
 
 export interface MonitorResponse {
