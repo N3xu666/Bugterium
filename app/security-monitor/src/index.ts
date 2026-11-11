@@ -93,7 +93,11 @@ export default {
     }
 
     try {
-      const snapshot = buildSnapshot(account, { windowStart, windowEnd });
+      const trafficConfig =
+        env.SITE_HOST || env.MONITOR_HOST || env.BFF_HOST
+          ? { siteHost: env.SITE_HOST, monitorHost: env.MONITOR_HOST, bffHost: env.BFF_HOST }
+          : undefined;
+      const snapshot = buildSnapshot(account, { windowStart, windowEnd, trafficConfig });
       await env.MONITOR_KV.put(KV_KEY, JSON.stringify(snapshot));
     } catch (err) {
       console.error('scheduled_write_failed', { message: (err as Error).message });

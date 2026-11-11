@@ -13,6 +13,11 @@ export interface Env {
   CF_ACCOUNT_ID: string;
   CF_API_TOKEN: string;
   MONITOR_KV: KVNamespace;
+  // M-03 (v2): optional host config for traffic breakdown.
+  // Unset => 	raffic omitted from SnapshotResponse.
+  SITE_HOST?: string;
+  MONITOR_HOST?: string;
+  BFF_HOST?: string;
 }
 
 // --- Response contract v1 ---
@@ -63,6 +68,53 @@ export interface UserAgentData {
   attacks: UserAgentItem[];
 }
 
+// --- v2 additive types (M-03: traffic host split) ---
+
+export interface GraphQLHostGroup {
+  count: number;
+  dimensions: {
+    clientRequestHTTPHost: string | null;
+  };
+}
+
+export interface HostTrafficItem {
+  host: string;
+  count: number;
+}
+
+export interface TrafficBreakdown {
+  site_requests: number;
+  own_polling: number;
+  bff_requests: number;
+  other_http: number;
+  cron_invocations: number;
+  hosts: HostTrafficItem[];
+}
+
+// M-04 (v2): Probe outcome split (reached / not_found / blocked / error).
+export interface ProbesOutcome {
+  reached: number;
+  not_found: number;
+  blocked: number;
+  error: number;
+}
+
+// M-06 (v2): Probe family classification by path signature.
+export interface ProbesFamily {
+  family: string;
+  count: number;
+}
+export interface ProbesBreakdown {
+  total: number;
+  by_outcome: ProbesOutcome;
+  top_paths: PathItem[];
+  families: ProbesFamily[];
+}
+export interface AggregateTrafficConfig {
+  siteHost?: string;
+  monitorHost?: string;
+  bffHost?: string;
+}
 export interface SnapshotMeta {
   generated_at: string;
   window_start: string;
@@ -75,6 +127,8 @@ export interface SnapshotMeta {
 export interface SnapshotResponse extends MonitorResponse {
   schema_version: '2.0';
   meta: SnapshotMeta;
+  traffic?: TrafficBreakdown;  // M-03: v2 additive, undefined = not computed
+  probes?: ProbesBreakdown;  // M-04: v2 additive, undefined = not computed
 }
 
 export interface MonitorResponse {
@@ -147,6 +201,7 @@ export interface GraphQLAccountData {
   byPath: GraphQLPathGroup[];
   byPathCountry: GraphQLPathCountryGroup[];
   byUserAgent: GraphQLUserAgentGroup[];
+  byHost?: GraphQLHostGroup[];  // M-03: v2 additive, undefined = not queried
 }
 
 export interface GraphQLError {

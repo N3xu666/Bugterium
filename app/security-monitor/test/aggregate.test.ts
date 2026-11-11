@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeAll } from 'vitest';
-import { aggregate } from '../src/lib/aggregate';
-import type { GraphQLAccountData, MonitorResponse } from '../src/lib/types';
+import { aggregate, aggregateTraffic, aggregateProbes, classifyProbeFamily } from '../src/lib/aggregate';
+import type { GraphQLAccountData, MonitorResponse, AggregateTrafficConfig, ProbesBreakdown } from '../src/lib/types';
 import fixture from './fixtures/graphql-response.json';
 
 // Fixed `now` so timeline is deterministic. Aligns with the fixture's latest bucket (16:00Z).
@@ -139,5 +139,150 @@ describe('aggregate() — v1 contract (frontend invariants F-01..F-05)', () => {
     expect(r1.timeline).not.toBe(r2.timeline);
     expect(r1.path_data).not.toBe(r2.path_data);
     expect(r1.path_data.attacks).not.toBe(r2.path_data.attacks);
+  });
+});
+describe('aggregateTraffic() — M-03 (v2): host split', () => {
+  const ALL_CONFIG: AggregateTrafficConfig = {
+    siteHost: 'bugterium.pages.dev',
+    monitorHost: 'bugterium-monitor.workers.dev',
+    bffHost: 'bugterium-bff.workers.dev',
+  };
+
+  it('splits byHost into site / own_polling / bff_requests / other_http', () => {
+    const result = aggregateTraffic(getAccount(), ALL_CONFIG);
+    expect(result.site_requests).toBe(350);
+    expect(result.own_polling).toBe(200);
+    expect(result.bff_requests).toBe(100);
+    // other_http = totalHttp (670) - named (650) = 20 (external 15 + null 5)
+    expect(result.other_http).toBe(20);
+  });
+
+  it('computes cron_invocations = totalWorkerRequests - totalHttp', () => {
+    const result = aggregateTraffic(getAccount(), ALL_CONFIG);
+    // workersInvocationsAdaptive: 1000 + 500 = 1500; byHost total = 670
+    expect(result.cron_invocations).toBe(830);
+  });
+
+  it('hosts[] excludes null host and is sorted desc by count', () => {
+    const result = aggregateTraffic(getAccount(), ALL_CONFIG);
+    expect(result.hosts).toEqual([
+      { host: 'bugterium.pages.dev', count: 350 },
+      { host: 'bugterium-monitor.workers.dev', count: 200 },
+      { host: 'bugterium-bff.workers.dev', count: 100 },
+      { host: 'external.api.example.com', count: 15 },
+    ]);
+    expect(result.hosts.find((h) => h.host === '')).toBeUndefined();
+  });
+
+  it('empty config => site/own/bff = 0, other_http = 670, cron = 830', () => {
+    const result = aggregateTraffic(getAccount(), {});
+    expect(result.site_requests).toBe(0);
+    expect(result.own_polling).toBe(0);
+    expect(result.bff_requests).toBe(0);
+    expect(result.other_http).toBe(670);
+    expect(result.cron_invocations).toBe(830);
+  });
+
+  it('works with missing byHost (older snapshots)', () => {
+    const account = { ...getAccount(), byHost: undefined };
+    const result = aggregateTraffic(account, ALL_CONFIG);
+    expect(result.site_requests).toBe(0);
+    expect(result.other_http).toBe(0);
+    expect(result.cron_invocations).toBe(1500);
+    expect(result.hosts).toEqual([]);
+  });
+});
+
+
+describe('aggregateProbes() — M-04 (v2): probe outcome split', () => {
+  it('total equals sum of all HTTP status counts', () => {
+    const result: ProbesBreakdown = aggregateProbes(getAccount());
+    expect(result.total).toBe(792);
+  });
+
+  it('by_outcome splits: reached / not_found / blocked / error', () => {
+    const { by_outcome } = aggregateProbes(getAccount());
+    expect(by_outcome.reached).toBe(770);   // 2xx(770) + 3xx
+    expect(by_outcome.not_found).toBe(7);   // 404
+    expect(by_outcome.blocked).toBe(10);    // 403(10) + 429(0)
+    expect(by_outcome.error).toBe(5);       // 500(3) + 504(2) + other 5xx
+  });
+
+  it('invariant: total = reached + not_found + blocked + error', () => {
+    const r = aggregateProbes(getAccount());
+    const sum = r.by_outcome.reached + r.by_outcome.not_found + r.by_outcome.blocked + r.by_outcome.error;
+    expect(sum).toBe(r.total);
+  });
+
+  it('top_paths sorted desc, null filtered, capped at 20', () => {
+    const { top_paths } = aggregateProbes(getAccount());
+    expect(top_paths).toEqual([
+      { path: '/', count: 400 },
+      { path: '/monitor', count: 300 },
+      { path: '/wp-login.php', count: 7 },
+      { path: '/.env', count: 3 },
+      { path: '/placeholder-path', count: 2 },
+    ]);
+    expect(top_paths.every((p) => p.path !== null)).toBe(true);
+    expect(top_paths.length).toBeLessThanOrEqual(20);
+  });
+
+  it('empty byStatusCountry => all outcomes 0, total 0', () => {
+    const account: GraphQLAccountData = { ...getAccount(), byStatusCountry: [] };
+    const r = aggregateProbes(account);
+    expect(r.total).toBe(0);
+    expect(r.by_outcome).toEqual({ reached: 0, not_found: 0, blocked: 0, error: 0 });
+  });
+});
+
+
+describe('classifyProbeFamily() — M-06 (v2): family signatures', () => {
+  const CASES: Array<[string, string | null]> = [
+    ['/.env', 'env_file'],
+    ['/.env.local', 'env_file'],
+    ['/wp-login.php', 'wordpress'],
+    ['/wp-admin/setup.php', 'wordpress'],
+    ['/phpmyadmin/index.php', 'phpmyadmin'],
+    ['/.git/config', 'git'],
+    ['/.aws/credentials', 'aws_creds'],
+    ['/.ssh/id_rsa', 'ssh_keys'],
+    ['/shell.php', 'shell'],
+    ['/phpinfo.php', 'phpinfo'],
+    ['/cgi-bin/test.cgi', 'cgi_bin'],
+    ['/actuator/env', 'actuator'],
+    // High-confidence-only: legit paths must NOT be flagged as families
+    ['/admin/dashboard', null],
+    ['/auth/login', null],
+    ['/api/v1/users', null],
+    ['/', null],
+    ['', null],
+  ];
+
+  it.each(CASES)('classifies %s => %s', (path, expected) => {
+    expect(classifyProbeFamily(path)).toBe(expected);
+  });
+});
+
+describe('aggregateProbes().families — M-06 (v2): per-family aggregation', () => {
+  it('groups fixture bad paths by family, sorted desc by count', () => {
+    const { families } = aggregateProbes(getAccount());
+    // Fixture: /wp-login.php (7), /.env (3), /placeholder-path (2, no match), / (400, no match)
+    expect(families).toEqual([
+      { family: 'wordpress', count: 7 },
+      { family: 'env_file', count: 3 },
+    ]);
+  });
+
+  it('families total is a subset of non-reached probes (invariant)', () => {
+    const r = aggregateProbes(getAccount());
+    const familyTotal = r.families.reduce((sum, f) => sum + f.count, 0);
+    const suspicious = r.by_outcome.not_found + r.by_outcome.blocked + r.by_outcome.error;
+    expect(familyTotal).toBeLessThanOrEqual(suspicious);
+  });
+
+  it('empty byPath => families is empty array', () => {
+    const account: GraphQLAccountData = { ...getAccount(), byPath: [] };
+    const r = aggregateProbes(account);
+    expect(r.families).toEqual([]);
   });
 });

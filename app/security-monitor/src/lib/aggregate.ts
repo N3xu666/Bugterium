@@ -17,6 +17,12 @@ import type {
   PathData,
   UserAgentData,
   UserAgentItem,
+  TrafficBreakdown,
+  AggregateTrafficConfig,
+  HostTrafficItem,
+  ProbesBreakdown,
+  ProbesOutcome,
+  ProbesFamily,
 } from './types';
 
 // Preserved verbatim from pre-refactor line 152 — drives client-side ONLY BOTS filter (F-03).
@@ -190,4 +196,122 @@ export function aggregate(account: GraphQLAccountData, now: Date): MonitorRespon
     path_data: pathDataBlock,
     user_agent_data: userAgentData,
   };
+}
+// M-03 (v2): Traffic breakdown by HTTP host. Splits site / monitor (own polling) /
+// BFF / other from total Worker invocations. Returns zeros if byHost is missing
+// (caller should only attach `traffic` to SnapshotResponse when byHost was queried).
+export function aggregateTraffic(
+  account: GraphQLAccountData,
+  config: AggregateTrafficConfig,
+): TrafficBreakdown {
+  const stats = account.workersInvocationsAdaptive ?? [];
+  const byHost = account.byHost ?? [];
+
+  let totalWorkerRequests = 0;
+  for (const s of stats) totalWorkerRequests += s.sum.requests || 0;
+
+  let siteRequests = 0;
+  let ownPolling = 0;
+  let bffRequests = 0;
+  let totalHttp = 0;
+  const hosts: HostTrafficItem[] = [];
+
+  for (const g of byHost) {
+    const host = g.dimensions.clientRequestHTTPHost ?? '';
+    totalHttp += g.count;
+    if (host) hosts.push({ host, count: g.count });
+    if (config.siteHost && host === config.siteHost) siteRequests += g.count;
+    else if (config.monitorHost && host === config.monitorHost) ownPolling += g.count;
+    else if (config.bffHost && host === config.bffHost) bffRequests += g.count;
+  }
+
+  hosts.sort((a, b) => b.count - a.count);
+
+  const namedHttp = siteRequests + ownPolling + bffRequests;
+  const otherHttp = Math.max(0, totalHttp - namedHttp);
+  const cronInvocations = Math.max(0, totalWorkerRequests - totalHttp);
+
+  return {
+    site_requests: siteRequests,
+    own_polling: ownPolling,
+    bff_requests: bffRequests,
+    other_http: otherHttp,
+    cron_invocations: cronInvocations,
+    hosts,
+  };
+}
+
+
+// M-06 (v2): Probe family signatures (high-confidence patterns only).
+// Additive: does NOT replace ATTACK_PATH_REGEX (v1 path_data.attacks).
+// Only known bad-path families -> no false-positive on /admin, /login, /config, /api/v1.
+export const PROBE_FAMILIES: ReadonlyArray<{ family: string; pattern: RegExp }> = [
+  { family: 'env_file',   pattern: /(\.env(\.|$)|\.envrc)/i },
+  { family: 'wordpress',  pattern: /(wp-admin|wp-login|wp-content|wp-includes)/i },
+  { family: 'phpmyadmin', pattern: /phpmyadmin/i },
+  { family: 'git',        pattern: /\.git(\/|$)/i },
+  { family: 'aws_creds',  pattern: /\.aws(\/|$)/i },
+  { family: 'ssh_keys',   pattern: /\.ssh(\/|$)/i },
+  { family: 'shell',      pattern: /(shell\.(php|sh|cgi)|c99|r57)/i },
+  { family: 'phpinfo',    pattern: /phpinfo\.php/i },
+  { family: 'cgi_bin',    pattern: /cgi-bin\//i },
+  { family: 'actuator',   pattern: /\/actuator(\/|$)/i },
+];
+
+export function classifyProbeFamily(path: string): string | null {
+  if (!path) return null;
+  for (const f of PROBE_FAMILIES) {
+    if (f.pattern.test(path)) return f.family;
+  }
+  return null;
+}
+// M-04 (v2): Probe outcome split. Fixes "SUSPICIOUS = 100% - (2xx+3xx)".
+// Separates attack signals (not_found + blocked) from infrastructure errors (error).
+// Invariant: total = reached + not_found + blocked + error.
+export function aggregateProbes(account: GraphQLAccountData): ProbesBreakdown {
+  const httpGroups = account.byStatusCountry ?? [];
+  const byPath = account.byPath ?? [];
+
+  let total = 0;
+  let reached = 0;
+  let notFound = 0;
+  let blocked = 0;
+  let error = 0;
+
+  for (const g of httpGroups) {
+    const status = g.dimensions.edgeResponseStatus;
+    total += g.count;
+    if (status >= 200 && status < 400) reached += g.count;
+    else if (status === 404) notFound += g.count;
+    else if (status === 403 || status === 429) blocked += g.count;
+    else error += g.count;
+  }
+
+  const pathData: PathItem[] = [];
+  for (const g of byPath) {
+    const p = g.dimensions.clientRequestPath;
+    if (p) pathData.push({ path: p, count: g.count });
+  }
+  pathData.sort((a, b) => b.count - a.count);
+  const top_paths = pathData.slice(0, 20);
+
+  const by_outcome: ProbesOutcome = {
+    reached,
+    not_found: notFound,
+    blocked,
+    error,
+  };
+
+  const familyCounts: Record<string, number> = {};
+  for (const g of byPath) {
+    const p = g.dimensions.clientRequestPath;
+    if (!p) continue;
+    const fam = classifyProbeFamily(p);
+    if (fam) familyCounts[fam] = (familyCounts[fam] || 0) + g.count;
+  }
+  const families: ProbesFamily[] = Object.entries(familyCounts)
+    .map(([family, count]) => ({ family, count }))
+    .sort((a, b) => b.count - a.count);
+
+  return { total, by_outcome, top_paths, families };
 }
