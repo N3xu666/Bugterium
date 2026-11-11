@@ -28,17 +28,11 @@ keywords = []
 # Global Allowlists (bypass ONLY regex patterns, NOT folders)
 # ---------------------------------------------------------
 [[allowlists]]
-description = "Global ignore for internal workflow files and test fixtures"
+description = "Global ignore for test fixtures only (narrowed in 0a.6, Pass 192)"
 paths = [
   '''tests/fixtures/''',
   '''test/fixtures/''',
   '''app/security-monitor/test/''',
-  '''app/security-monitor/test/.*''',
-  '''\.test\.ts$''',
-  '''_WORKFLOW\.md$''',
-  '''PROMPT_NEXT_SESSION\.txt$''',
-  '''masking-dict\.ps1$''',
-  '''tests/''',
 ]
 
 [[allowlists]]

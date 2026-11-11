@@ -1,13 +1,22 @@
 import { Hono } from 'hono';
 import { getCookie, deleteCookie } from 'hono/cookie';
+import { z } from 'zod';
 import { verifyJwt } from '../auth/jwt';
 import type { Bindings } from '../env';
 import { sha256 } from '../lib/crypto';
 import { logAuthEvent } from '../auth/session';
+import { parseJsonBody } from '../lib/validate';
+
+const LogoutBody = z.object({});
 
 const logout = new Hono<{ Bindings: Bindings }>();
 
 logout.post('/', async (c) => {
+  const contentLength = Number(c.req.header('content-length') || '0');
+  if (contentLength > 0) {
+    await parseJsonBody(c.req.raw, LogoutBody);
+  }
+
   const token = getCookie(c, c.env.COOKIE_NAME);
   
   if (token) {
