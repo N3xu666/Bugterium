@@ -2,7 +2,7 @@ import { createMiddleware } from 'hono/factory';
 import { getCookie } from 'hono/cookie';
 import { verifyJwt } from '../auth/jwt';
 import { Unauthorized, Forbidden } from '../lib/errors';
-import { sha256 } from '../lib/crypto';
+import { hmacSha256 } from '../lib/crypto';
 import { logAuthEvent } from '../auth/session';
 import type { Bindings, Variables } from '../env';
 
@@ -35,7 +35,7 @@ export const requireAdmin = createMiddleware<{ Bindings: Bindings; Variables: Va
   const user = c.get('user');
   if (!user || user.role !== 'admin') {
     const ip = c.req.header('CF-Connecting-IP') || 'unknown';
-    const ipHash = await sha256(ip + c.env.IP_PEPPER);
+    const ipHash = await hmacSha256(ip, c.env.IP_PEPPER);
     await logAuthEvent(c.env.DB, user?.id ?? null, 'forbidden', ipHash);
     throw new Forbidden('forbidden', 'Admin access required');
   }

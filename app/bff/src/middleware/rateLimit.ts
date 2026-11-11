@@ -1,7 +1,7 @@
 import { createMiddleware } from 'hono/factory';
 import type { Bindings } from '../env';
 import { RateLimited } from '../lib/errors';
-import { sha256 } from '../lib/crypto';
+import { hmacSha256 } from '../lib/crypto';
 
 /**
  * D1-based rate limiter factory (ASVS 3.1).
@@ -11,7 +11,7 @@ import { sha256 } from '../lib/crypto';
 export function createRateLimiter(prefix: string, maxAttempts: number, windowSize = 60) {
   return createMiddleware<{ Bindings: Bindings }>(async (c, next) => {
     const ip = c.req.header('CF-Connecting-IP') || 'unknown';
-    const ipHash = await sha256(ip + c.env.IP_PEPPER);
+    const ipHash = await hmacSha256(ip, c.env.IP_PEPPER);
     const key = `${prefix}:${ipHash}`;
     const now = Math.floor(Date.now() / 1000);
 
