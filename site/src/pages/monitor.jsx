@@ -31,34 +31,57 @@ export default function MonitorPage() {
   };
 
   useEffect(() => {
+    const apiUrl = typeof window !== 'undefined' && window.location.hostname === 'localhost'
+      ? 'http://localhost:8787'
+      : 'https://bugterium-security-monitor.bugterium.workers.dev';
+    const FETCH_TIMEOUT_MS = 10000;
+    let isMounted = true;
+
     const fetchData = async () => {
+      // M-10: skip polling when tab is hidden (saves Workers quota).
+      if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
       try {
-        const apiUrl = typeof window !== 'undefined' && window.location.hostname === 'localhost'
-          ? 'http://localhost:8787'
-          : 'https://bugterium-security-monitor.bugterium.workers.dev';
-        const response = await fetch(apiUrl);
+        const response = await fetch(apiUrl, { signal: controller.signal });
         const result = await response.json();
+        if (!isMounted) return;
         if (response.ok && result.status === 'ok') {
           setData(result);
           setErrorMsg(null);
           setIsLive(true);
-          const now = new Date();
-          const gmt4 = new Date(now.getTime() + (4 * 60 * 60 * 1000));
-          const formatted = gmt4.toISOString().replace('T', ' ').substring(0, 16) + ' GMT+4';
-          setLastSync(formatted);
+          // M-10: use snapshot generated_at (server-side) instead of browser clock.
+          const iso = result.meta && result.meta.generated_at ? result.meta.generated_at : new Date().toISOString();
+          const gmt4 = new Date(new Date(iso).getTime() + (4 * 60 * 60 * 1000));
+          setLastSync(gmt4.toISOString().replace('T', ' ').substring(0, 16) + ' GMT+4');
         } else {
-          setErrorMsg(`WAITING FOR SNAPSHOT (CODE: ${result.code || response.status})...`);
+          setErrorMsg('WAITING FOR SNAPSHOT (CODE: ' + (result.code || response.status) + ')...');
           setIsLive(false);
         }
       } catch (error) {
-        setErrorMsg('API UNREACHABLE. RETRYING...');
+        if (!isMounted) return;
+        const msg = error && error.name === 'AbortError' ? 'API TIMEOUT. RETRYING...' : 'API UNREACHABLE. RETRYING...';
+        setErrorMsg(msg);
         setIsLive(false);
+      } finally {
+        clearTimeout(timer);
       }
     };
 
     fetchData();
     const interval = setInterval(fetchData, 30000);
-    return () => clearInterval(interval);
+
+    // M-10: pause polling when tab hidden; resume immediately when visible.
+    const onVisibility = () => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'visible') fetchData();
+    };
+    if (typeof document !== 'undefined') document.addEventListener('visibilitychange', onVisibility);
+
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+      if (typeof document !== 'undefined') document.removeEventListener('visibilitychange', onVisibility);
+    };
   }, []);
 
   useEffect(() => {

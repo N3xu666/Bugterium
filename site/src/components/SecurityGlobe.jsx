@@ -14,7 +14,7 @@ export default function SecurityGlobe({ geoData, focusCoords, focusCountry, metr
 
   useEffect(() => {
     const img = new Image();
-    img.src = '/earth_8k.jpg';
+    img.src = '/earth_4k.jpg';
 
     img.onload = () => {
       const canvas = document.createElement('canvas');
