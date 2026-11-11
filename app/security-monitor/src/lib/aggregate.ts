@@ -229,7 +229,12 @@ export function aggregateTraffic(
 
   const namedHttp = siteRequests + ownPolling + bffRequests;
   const otherHttp = Math.max(0, totalHttp - namedHttp);
-  const cronInvocations = Math.max(0, totalWorkerRequests - totalHttp);
+
+  // Pass 196 fix (M-03 tail): cron_invocations cannot be computed reliably.
+  // workersInvocationsAdaptive.sum.requests (Workers only) and httpRequestsAdaptiveGroups
+  // (all HTTP, incl. Pages static) are DIFFERENT datasets; subtracting yields negative
+  // (clamped to 0). Keep the field at 0 for v2 contract compat; expose raw total_workers.
+  const cronInvocations = 0;
 
   return {
     site_requests: siteRequests,
@@ -237,6 +242,7 @@ export function aggregateTraffic(
     bff_requests: bffRequests,
     other_http: otherHttp,
     cron_invocations: cronInvocations,
+    total_workers: totalWorkerRequests,
     hosts,
   };
 }
