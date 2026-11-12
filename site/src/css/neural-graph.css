@@ -489,8 +489,8 @@
 /* --- ENTITY INSPECTOR CARD --- */
 .entity-card {
   position: absolute;
-  right: 20px;
-  top: 20px;
+  right: 16px;
+  top: 54px;
   width: 290px;
   max-width: calc(100% - 40px);
   background: rgba(10, 10, 10, 0.94);

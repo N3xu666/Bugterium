@@ -1,14 +1,43 @@
-import React, { useEffect, useRef, useState, useMemo } from 'react';
+import React, { useEffect, useRef, useState, useMemo, useCallback } from 'react';
 import Globe from 'react-globe.gl';
 import * as THREE from 'three';
 import { countryCoords } from './countryCoords';
 
-export default function SecurityGlobe({ geoData, focusCoords, focusCountry, metrics, layers, timeline, onCountryClick, focusPath, viewMode }) {
+// Коэффициент перевода угловых градусов сферы (ThreeGlobe R=100) в мировые единицы Three.js
+const GLOBE_PX_PER_DEG = (2 * Math.PI * 100) / 360; // ~1.7453
+
+// Статичные аксессоры для предотвращения пересоздания геометрии дуг и колец в react-kapsule
+const getArcStartLat = (d) => d.startLat;
+const getArcStartLng = (d) => d.startLng;
+const getArcEndLat = (d) => d.endLat;
+const getArcEndLng = (d) => d.endLng;
+const getArcColor = (d) => d.color;
+const getArcAltitude = (d) => d.altitude;
+const getArcDashLength = (d) => d.dashLength;
+const getArcDashGap = (d) => d.dashGap;
+const getArcDashAnimateTime = (d) => d.animateTime;
+const getArcLabel = (d) => d.name;
+const getRingColor = (d) => d.ringColor;
+const getRingMaxRadius = (d) => d.maxR;
+const getRingPropagationSpeed = (d) => d.propSpeed;
+const getRingRepeatPeriod = (d) => d.period;
+const getPointLabel = ({ name, count }) => `<b>${name}</b>: ${count} requests`;
+
+export default function SecurityGlobe({ geoData, attacksData, focusCoords, focusCountry, metrics, layers, timeline, onCountryClick, focusPath, viewMode }) {
   const globeEl = useRef();
   const containerRef = useRef();
   const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
   const [globeMaterial, setGlobeMaterial] = useState(null);
   const [altitude, setAltitude] = useState(2.5);
+  const lastAltRef = useRef(2.5);
+
+  const handleZoom = useCallback(({ altitude: newAlt }) => {
+    // Обновляем высоту только при реальном изменении (порог 0.08), чтобы OrbitControls change не спамил перерендерами при вращении
+    if (Math.abs(newAlt - lastAltRef.current) > 0.08) {
+      lastAltRef.current = newAlt;
+      setAltitude(Math.round(newAlt * 10) / 10);
+    }
+  }, []);
 
   const timelineObjRef = useRef(null);
 
@@ -177,6 +206,10 @@ export default function SecurityGlobe({ geoData, focusCoords, focusCountry, metr
     }
   }, [focusCoords, focusCountry]);
 
+  const attackCountriesSet = useMemo(() => {
+    return new Set(Array.isArray(attacksData) ? attacksData.map(a => a.country) : []);
+  }, [attacksData]);
+
   const ringsBaseData = useMemo(() => (geoData || []).filter(item => countryCoords[item.country] && item.country !== 'XX').map(item => {
     const isFocused = focusCountry === item.country;
     const isDimmed = focusCountry && !isFocused;
@@ -184,10 +217,54 @@ export default function SecurityGlobe({ geoData, focusCoords, focusCountry, metr
       lat: countryCoords[item.country][0],
       lng: countryCoords[item.country][1],
       name: item.country,
-      maxR: 2.5, propSpeed: 2.0, period: 200,
-      ringColor: isDimmed ? 'rgba(255, 140, 0, 0.4)' : '#ff8c00'
+      maxR: 2.0, 
+      propSpeed: 1.5, 
+      period: 200,
+      ringColor: isDimmed ? 'rgba(255, 140, 0, 0.25)' : 'rgba(255, 140, 0, 0.8)'
     };
   }), [geoData, focusCountry]);
+
+  // Динамический масштаб радиуса нод в градусах (для pointRadius)
+  const getDynamicNodeRadius = useCallback((sizeMultiplier = 1) => {
+    const MIN_SIZE = 0.01;
+    const MAX_SIZE = 0.7;
+    const MIN_ALT = 0.1;
+    const MAX_ALT = 4.5;
+    const t = Math.max(0, Math.min(1, (altitude - MIN_ALT) / (MAX_ALT - MIN_ALT)));
+    return sizeMultiplier * (MIN_SIZE + t * (MAX_SIZE - MIN_SIZE));
+  }, [altitude]);
+
+  // Динамическая высота цилиндров нод
+  const getDynamicNodeHeight = useCallback(() => {
+    const MIN_HEIGHT = 0.01;
+    const MAX_HEIGHT = 0.1;
+    const MIN_ALT = 0.1;
+    const MAX_ALT = 4.5;
+    const t = Math.max(0, Math.min(1, (altitude - MIN_ALT) / (MAX_ALT - MIN_ALT)));
+    return MIN_HEIGHT + t * (MAX_HEIGHT - MIN_HEIGHT);
+  }, [altitude]);
+
+  const getPointRadius = useCallback((d) => {
+    return getDynamicNodeRadius(d.size);
+  }, [getDynamicNodeRadius]);
+
+  // Динамический масштаб толщины (радиуса) дуг: минимальное значение сохраняется, максимальное немного уменьшено
+  const getDynamicArcStroke = useCallback((sizeMultiplier = 1) => {
+    const MIN_SIZE = 0.01;
+    const MAX_SIZE = 0.48; // Уменьшено с 0.70 для более изящного вида дуг на общем плане
+    const MIN_ALT = 0.1;
+    const MAX_ALT = 4.5;
+    const t = Math.max(0, Math.min(1, (altitude - MIN_ALT) / (MAX_ALT - MIN_ALT)));
+    const dynamicRadius = sizeMultiplier * (MIN_SIZE + t * (MAX_SIZE - MIN_SIZE));
+    const arcRadiusInScene = dynamicRadius * GLOBE_PX_PER_DEG;
+    const rawStroke = 2 * arcRadiusInScene * 0.9;
+    // Квантование с шагом 0.02 исключает перестроение геометрии TubeGeometry при микро-колебаниях
+    return Math.round(rawStroke * 50) / 50;
+  }, [altitude]);
+
+  const getArcStroke = useCallback((d) => {
+    return getDynamicArcStroke(d.stroke || 0.9);
+  }, [getDynamicArcStroke]);
 
   const pointsData = useMemo(() => (geoData || []).filter(item => countryCoords[item.country] && item.country !== 'XX').map(item => {
     const isFocused = focusCountry === item.country;
@@ -195,40 +272,57 @@ export default function SecurityGlobe({ geoData, focusCoords, focusCountry, metr
     return {
       lat: countryCoords[item.country][0],
       lng: countryCoords[item.country][1],
-      size: 1.0,
-      color: isDimmed ? 'rgba(255, 140, 0, 0.4)' : '#ff8c00',
+      size: isFocused ? 1.4 : 0.9,
+      color: isDimmed ? 'rgba(255, 140, 0, 0.35)' : '#ff8c00',
       name: item.country,
       count: item.count
     };
-  }), [geoData, focusCountry, altitude]);
+  }), [geoData, focusCountry]);
 
-  // --- ДУГИ АТАК (ATTACK ARCS) ---
+  // --- ДУГИ: КРАСНЫЕ ТОЛЬКО В РЕЖИМЕ SUSPICIOUS ACTIVITY, ИНАЧЕ СВЕТЛЫЙ INGRESS STREAM ---
   const arcsData = useMemo(() => {
     if (!geoData || geoData.length === 0) return [];
     const dest = countryCoords['AZ'] || [40.14, 47.57];
+    const isAttackView = viewMode === 'attacks';
+
     return (geoData || [])
       .filter(item => countryCoords[item.country] && item.country !== 'XX' && item.country !== 'AZ')
       .map(item => {
         const coords = countryCoords[item.country];
         const isFocused = focusCountry === item.country;
         const count = item.count || 1;
+
+        let arcColors;
+        let arcLabel;
+        if (isAttackView) {
+          arcColors = isFocused
+            ? ['rgba(255, 0, 48, 0.75)', 'rgba(192, 0, 48, 0.75)']
+            : ['rgba(255, 60, 60, 0.22)', 'rgba(192, 0, 48, 0.22)'];
+          arcLabel = `⚠️ ${item.country} → ATTACK VECTOR [${count} threat probes]`;
+        } else {
+          arcColors = isFocused
+            ? ['rgba(255, 255, 255, 0.8)', 'rgba(215, 215, 215, 0.75)']
+            : ['rgba(255, 255, 255, 0.22)', 'rgba(180, 180, 180, 0.22)'];
+          arcLabel = `🌐 ${item.country} → INGRESS STREAM [${count} requests]`;
+        }
+
         return {
           startLat: coords[0],
           startLng: coords[1],
           endLat: dest[0],
           endLng: dest[1],
-          name: `${item.country} → BUGTERIUM EDGE (${count} requests)`,
-          color: isFocused 
-            ? ['rgba(255, 0, 85, 0.95)', 'rgba(192, 0, 48, 1)'] 
-            : ['rgba(255, 140, 0, 0.85)', 'rgba(192, 0, 48, 0.9)'],
-          stroke: isFocused ? 0.9 : 0.45,
+          name: arcLabel,
+          color: arcColors,
+          stroke: isFocused ? 1.4 : 0.9,
           altitude: Math.min(0.45, 0.16 + Math.log10(Math.max(1, count)) * 0.08),
-          dashLength: 0.4,
-          dashGap: 0.2,
-          animateTime: 2200
+          dashLength: isAttackView ? 0.4 : 0.5,
+          dashGap: isAttackView ? 0.15 : 0.2,
+          animateTime: isAttackView
+            ? Math.max(1000, 2200 - Math.min(count, 500) * 2)
+            : 2400
         };
       });
-  }, [geoData, focusCountry]);
+  }, [geoData, focusCountry, viewMode]);
 
   const scannerRing = {
     lat: 90, lng: 0, maxR: 180, propSpeed: 45, period: 9999999, ringColor: 'rgba(0, 255, 204, 0.8)'
@@ -332,32 +426,35 @@ export default function SecurityGlobe({ geoData, focusCoords, focusCountry, metr
           pointsData={layers.threats ? pointsData : []}
           onPointClick={(point) => onCountryClick(point.name)}
           pointsMerge={false}
-          pointAltitude={(d) => { const MIN_HEIGHT = 0.01; const MAX_HEIGHT = 0.1; const MIN_ALT = 0.1; const MAX_ALT = 4.5; const t = Math.max(0, Math.min(1, (altitude - MIN_ALT) / (MAX_ALT - MIN_ALT))); return MIN_HEIGHT + t * (MAX_HEIGHT - MIN_HEIGHT); }}
+          pointAltitude={getDynamicNodeHeight}
           pointsTransitionDuration={0}
-          pointRadius={(d) => { const MIN_SIZE = 0.01; const MAX_SIZE = 0.7; const MIN_ALT = 0.1; const MAX_ALT = 4.5; const t = Math.max(0, Math.min(1, (altitude - MIN_ALT) / (MAX_ALT - MIN_ALT))); return d.size * (MIN_SIZE + t * (MAX_SIZE - MIN_SIZE)); }}
+          pointRadius={getPointRadius}
           pointColor="color"
-          pointLabel={({ name, count }) => `<b>${name}</b>: ${count} requests`}
+          pointLabel={getPointLabel}
 
           ringsData={allRings}
-          ringColor={(d) => d.ringColor}
-          ringMaxRadius={(d) => d.maxR}
-          ringPropagationSpeed={(d) => d.propSpeed}
-          ringRepeatPeriod={(d) => d.period}
+          ringColor={getRingColor}
+          ringMaxRadius={getRingMaxRadius}
+          ringPropagationSpeed={getRingPropagationSpeed}
+          ringRepeatPeriod={getRingRepeatPeriod}
 
-          arcsData={layers.arcs !== false ? arcsData : []}
-          arcStartLat={(d) => d.startLat}
-          arcStartLng={(d) => d.startLng}
-          arcEndLat={(d) => d.endLat}
-          arcEndLng={(d) => d.endLng}
-          arcColor={(d) => d.color}
-          arcAltitude={(d) => d.altitude}
-          arcStroke={(d) => d.stroke}
-          arcDashLength={(d) => d.dashLength}
-          arcDashGap={(d) => d.dashGap}
-          arcDashAnimateTime={(d) => d.animateTime}
-          arcLabel={(d) => d.name}
+          arcsData={layers.threats ? arcsData : []}
+          arcsTransitionDuration={0}
+          arcCurveResolution={36}
+          arcCircularResolution={4}
+          arcStartLat={getArcStartLat}
+          arcStartLng={getArcStartLng}
+          arcEndLat={getArcEndLat}
+          arcEndLng={getArcEndLng}
+          arcColor={getArcColor}
+          arcAltitude={getArcAltitude}
+          arcStroke={getArcStroke}
+          arcDashLength={getArcDashLength}
+          arcDashGap={getArcDashGap}
+          arcDashAnimateTime={getArcDashAnimateTime}
+          arcLabel={getArcLabel}
 
-          onZoom={({ altitude }) => setAltitude(altitude)}
+          onZoom={handleZoom}
           onGlobeReady={handleGlobeReady}
         />
       )}

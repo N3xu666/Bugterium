@@ -266,25 +266,6 @@
   flex-shrink: 0;
 }
 
-.threatTargetBtn {
-  background: rgba(255, 140, 0, 0.1);
-  border: 1px solid rgba(255, 140, 0, 0.4);
-  color: #ff8c00;
-  font-family: 'JetBrains Mono', ui-monospace, monospace;
-  font-size: 10px;
-  padding: 1px 5px;
-  cursor: pointer;
-  letter-spacing: 0.05em;
-  transition: all 0.2s ease;
-  line-height: 1.2;
-}
-
-.threatTargetBtn:hover {
-  background: #ff8c00;
-  color: #000000;
-  border-color: #ff8c00;
-}
-
 .threatNvd {
   display: flex;
   flex-direction: row;

@@ -295,7 +295,21 @@ const buildVisible = (graph, focus, activeFilter) => {
   return baseData;
 };
 
-export default function NeuralGraph({ onReady }) {
+const getNodeCountForFocus = (targetFocus, g, activeFilter) => {
+  if (!targetFocus || !g || !g.brain) return g?.brain?.nodes?.length || 944;
+  const vis = buildVisible(g, targetFocus, activeFilter);
+  return (vis && vis.nodes) ? vis.nodes.length : 944;
+};
+
+const getCameraDistance = (nodeCount, embedded = false) => {
+  const mult = embedded ? 41 : 33;
+  const offset = embedded ? 20 : 15;
+  const minD = embedded ? 140 : 110;
+  const maxD = embedded ? 1300 : 1050;
+  return Math.min(maxD, Math.max(minD, Math.round(mult * Math.sqrt(nodeCount) + offset)));
+};
+
+export default function NeuralGraph({ onReady, embedded = false, onBackToLenses }) {
   const [graph, setGraph] = useState(null);
   const [focus, setFocus] = useState(null);
   const [activeFilter, setActiveFilter] = useState(null);
@@ -325,9 +339,11 @@ export default function NeuralGraph({ onReady }) {
   const graphRef = useRef(null);
   const bloomAddedRef = useRef(false);
   const nodeMapRef = useRef(new Map());
+  const graphDataRef = useRef(graph);
   const tickCount = useRef(0);
 
   useEffect(() => {
+    graphDataRef.current = graph;
     if (graph && graph.brain) {
       const m = new Map();
       graph.brain.nodes.forEach((n) => m.set(n.id, n));
@@ -431,6 +447,34 @@ export default function NeuralGraph({ onReady }) {
     }
   }, []);
 
+  const resetCameraToFocus = useCallback((targetFocus) => {
+    const g = graphRef.current;
+    if (!g) return;
+    if (g.controls()) {
+      g.controls().target.set(0, 0, 0);
+    }
+    const count = getNodeCountForFocus(targetFocus, graphDataRef.current, activeFilter);
+    const targetDist = getCameraDistance(count, embedded);
+    const cam = g.camera();
+    const curX = cam ? cam.position.x : 0;
+    const curY = cam ? cam.position.y : 0;
+    const curZ = cam ? cam.position.z : targetDist;
+    const curLen = Math.sqrt(curX * curX + curY * curY + curZ * curZ);
+
+    let nextX = 0, nextY = 0, nextZ = targetDist;
+    if (curLen > 10) {
+      nextX = (curX / curLen) * targetDist;
+      nextY = (curY / curLen) * targetDist;
+      nextZ = (curZ / curLen) * targetDist;
+    }
+
+    g.cameraPosition(
+      { x: nextX, y: nextY, z: nextZ },
+      { x: 0, y: 0, z: 0 },
+      700
+    );
+  }, [embedded, activeFilter]);
+
   const goTo = useCallback((nextFocus) => {
     const url = new URL(window.location.href);
     if (nextFocus) url.searchParams.set('focus', nextFocus);
@@ -438,7 +482,9 @@ export default function NeuralGraph({ onReady }) {
     window.history.pushState({}, '', url.toString());
     setFocus(nextFocus);
     setSelectedNode(null);
-  }, []);
+
+    resetCameraToFocus(nextFocus);
+  }, [resetCameraToFocus]);
 
   useEffect(() => {
     const onFocusNodeEvent = (e) => {
@@ -482,6 +528,7 @@ export default function NeuralGraph({ onReady }) {
         }
         if (selectedNode) {
           setSelectedNode(null);
+          resetCameraToFocus(focus);
           return;
         }
         if (!focus) return;
@@ -531,10 +578,49 @@ export default function NeuralGraph({ onReady }) {
   };
 
   return (
-    <div className="app">
+    <div 
+      className="app"
+      style={embedded ? {
+        position: 'relative',
+        inset: 'auto',
+        width: '100%',
+        height: '100%',
+        zIndex: 1,
+        display: 'grid',
+        gridTemplateRows: '40px 1fr 40px'
+      } : undefined}
+    >
       <header className="hud">
-        <span className="brand"><span className="brand-prefix">BUGTERIUM</span><span className="sep">/</span> NEURAL PORT</span>
+        <span className="brand">
+          <span className="brand-prefix">BUGTERIUM</span>
+          <span className="sep">/</span> 
+          {onBackToLenses ? (
+            <button
+              type="button"
+              style={{
+                background: 'none',
+                border: 'none',
+                color: 'inherit',
+                font: 'inherit',
+                letterSpacing: 'inherit',
+                textTransform: 'inherit',
+                cursor: 'pointer',
+                padding: 0
+              }}
+              onClick={onBackToLenses}
+              title="Return to Lenses Hub"
+            >
+              LENSES
+            </button>
+          ) : 'NEURAL PORT'}
+        </span>
         <nav className="crumbs">
+          <span className="crumb-item">
+            <span className="crumb" style={{ cursor: 'default', pointerEvents: 'none' }}>
+              NEURAL PORT
+            </span>
+          </span>
+          <span className="sep">/</span>
           {crumbs.map((c, i) => {
             const isRoot = c.id === HOME;
             const label = isRoot ? 'ROOT' : c.label;
@@ -552,7 +638,11 @@ export default function NeuralGraph({ onReady }) {
             );
           })}
         </nav>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+        <span className="status">{status}</span>
+      </header>
+
+      <main className="stage" ref={containerRef}>
+        <div className="port-search-wrap" style={{ position: 'absolute', top: '14px', right: '16px', zIndex: 60 }}>
           <div className="hud-search-wrap">
             <input
               ref={searchInputRef}
@@ -568,7 +658,7 @@ export default function NeuralGraph({ onReady }) {
               onBlur={() => setTimeout(() => setIsSearchOpen(false), 200)}
             />
             {isSearchOpen && searchResults.length > 0 && (
-              <div className="hud-search-dropdown">
+              <div className="hud-search-dropdown" style={{ right: 0, left: 'auto' }}>
                 {searchResults.map((res) => {
                   const grp = res.group || (res.is_index ? 'index' : 'file');
                   return (
@@ -595,11 +685,8 @@ export default function NeuralGraph({ onReady }) {
               </div>
             )}
           </div>
-          <span className="status">{status}</span>
         </div>
-      </header>
 
-      <main className="stage" ref={containerRef}>
         {(!isReady || fading) && (
           <div className={"loading-overlay" + (fading ? " fading" : "")}>
             <div className="loading-text">INITIALIZING NEURAL PORT...</div>
@@ -643,7 +730,7 @@ export default function NeuralGraph({ onReady }) {
               <div className="entity-badge" data-group={selectedNode.group || (selectedNode.is_index ? 'index' : 'file')}>
                 {selectedNode.unmapped ? 'LIVE THREAT' : (selectedNode.group ? selectedNode.group.toUpperCase() : (selectedNode.is_index ? 'CATEGORY' : 'FILE'))}
               </div>
-              <button type="button" className="entity-close-btn" onClick={() => setSelectedNode(null)} title="Close inspector">✕</button>
+              <button type="button" className="entity-close-btn" onClick={() => { setSelectedNode(null); resetCameraToFocus(focus); }} title="Close inspector">✕</button>
             </div>
             <div className="entity-title">{selectedNode.label || selectedNode.id}</div>
             
@@ -651,11 +738,6 @@ export default function NeuralGraph({ onReady }) {
               <div style={{ background: 'rgba(255, 140, 0, 0.12)', border: '1px solid rgba(255, 140, 0, 0.4)', padding: '8px 10px', fontSize: '10px', color: '#ffb347', lineHeight: '1.4' }}>
                 <div style={{ fontWeight: '600', marginBottom: '4px' }}>⚡ CISA KEV ACTIVE ZERO-DAY</div>
                 <div>{selectedNode.description || 'Active exploited in the wild.'}</div>
-                {typeof selectedNode.cvss === 'number' && (
-                  <div style={{ marginTop: '6px', color: '#ffffff' }}>
-                    CVSS: <strong style={{ color: '#c00030' }}>{selectedNode.cvss.toFixed(1)}</strong> · EPSS: <strong>{((selectedNode.epss || 0) * 100).toFixed(1)}%</strong>
-                  </div>
-                )}
                 <div style={{ marginTop: '4px', color: '#aaaaaa', fontStyle: 'italic' }}>
                   Not yet in local repository writeups.
                 </div>
@@ -725,7 +807,7 @@ export default function NeuralGraph({ onReady }) {
             width={size.width}
             height={size.height}
             backgroundColor="#000000"
-            cameraPosition={{ x: 0, y: 0, z: 400 }}
+            cameraPosition={{ x: 0, y: 0, z: embedded ? 1280 : 1000 }}
             nodeThreeObject={getNodeObject}
             nodeLabel={getNodeLabel}
             onNodeClick={handleNodeClick}
