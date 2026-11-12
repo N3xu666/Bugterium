@@ -13,6 +13,7 @@ const MAT = {
   file: new THREE.MeshBasicMaterial({ color: new THREE.Color(0xa855f7).multiplyScalar(2.5) }),
   tool: new THREE.MeshBasicMaterial({ color: new THREE.Color(0xff0000).multiplyScalar(2.5) }),
   cve: new THREE.MeshBasicMaterial({ color: 0xff8c00 }),
+  mitre: new THREE.MeshBasicMaterial({ color: new THREE.Color(0x00ff66).multiplyScalar(2.2) }),
 };
 
 const linkPoints = [];
@@ -73,12 +74,14 @@ const getNodeColorHex = (node) => {
   if (node.id === HOME) return 0xffffff;
   if (node.group === 'tool') return 0xff0000;
   if (node.group === 'cve') return 0xff8c00;
+  if (node.group === 'mitre') return 0x00ff66;
   if (node.is_index) return 0xffffff;
   return 0xa855f7;
 };
 const sphereRadiusFor = (hex) => {
   if (hex === 0xff0000) return 2.5;
   if (hex === 0xff8c00) return 2.0;
+  if (hex === 0x00ff66) return 2.2;
   if (hex === 0xa855f7) return 1.4;
   if (hex === 0xffffff) return 2.2;
   return 1.4;
@@ -86,6 +89,7 @@ const sphereRadiusFor = (hex) => {
 const thicknessBoostFor = (hex) => {
   if (hex === 0xff0000) return 3.0;
   if (hex === 0xff8c00) return 5.7;
+  if (hex === 0x00ff66) return 4.5;
   if (hex === 0xa855f7) return 2.5;
   if (hex === 0xffffff) return 2.0;
   return 4.0;
@@ -173,6 +177,7 @@ const getNodeObject = (node) => {
   if (node.id === HOME) { mat = MAT.home; scale = 3.5; }
   else if (node.group === 'tool') { mat = MAT.tool; scale = 2.5; }
   else if (node.group === 'cve') { mat = MAT.cve; scale = 2.0; }
+  else if (node.group === 'mitre') { mat = MAT.mitre; scale = 2.2; }
   else if (node.is_index) { mat = MAT.index; scale = 2.2; }
 
   const mesh = new THREE.Mesh(GEO, mat);
@@ -191,80 +196,114 @@ const readFocusFromUrl = () => {
   return q.get('focus') || null;
 };
 
-const buildVisible = (graph, focus) => {
+const buildVisible = (graph, focus, activeFilter) => {
   if (!graph || !graph.hierarchy || !graph.brain) return { nodes: [], links: [] };
   const tree = graph.hierarchy.tree;
   const allBrainNodes = graph.brain.nodes;
   const nodeMap = new Map(allBrainNodes.map(n => [n.id, n]));
 
-  if (!focus) {
-    return graph.brain;
+  let baseData = graph.brain;
+
+  if (focus) {
+    if (focus.startsWith('tool:') || focus.startsWith('cve:') || focus.startsWith('mitre:')) {
+      const connectedIds = new Set([focus]);
+      const visibleLinks = [];
+      for (const l of graph.brain.links) {
+        const s = typeof l.source === 'object' ? l.source.id : l.source;
+        const t = typeof l.target === 'object' ? l.target.id : l.target;
+        if (s === focus || t === focus) {
+          connectedIds.add(s);
+          connectedIds.add(t);
+          visibleLinks.push(l);
+        }
+      }
+      const nodes = Array.from(connectedIds).map(id => nodeMap.get(id)).filter(Boolean);
+      baseData = { nodes, links: visibleLinks };
+    } else {
+      // 1. Gather all descendants of focus
+      const baseIds = new Set();
+      const addDescendants = (id) => {
+        baseIds.add(id);
+        const n = tree[id];
+        if (n && n.children) n.children.forEach(addDescendants);
+      };
+      addDescendants(focus);
+
+      // 2. Gather neural links where source is in baseIds (captures tools/CVEs/mitre)
+      const visibleIds = new Set([...baseIds]);
+      const visibleLinks = [];
+      const seenLinks = new Set();
+
+      for (const l of graph.brain.links) {
+        const s = l.source.id || l.source;
+        const t = l.target.id || l.target;
+        if (baseIds.has(s)) {
+          visibleIds.add(s);
+          visibleIds.add(t);
+          const key = s + '->' + t;
+          if (!seenLinks.has(key)) {
+            seenLinks.add(key);
+            visibleLinks.push(l);
+          }
+        }
+      }
+
+      // 3. Add hierarchy links for structure (parent-child)
+      for (const l of graph.hierarchy.links) {
+        const s = l.source.id || l.source;
+        const t = l.target.id || l.target;
+        if (baseIds.has(s) && baseIds.has(t)) {
+          const key = s + '->' + t;
+          if (!seenLinks.has(key)) {
+            seenLinks.add(key);
+            visibleLinks.push(l);
+          }
+        }
+      }
+
+      const nodes = Array.from(visibleIds).map(id => nodeMap.get(id)).filter(Boolean);
+      baseData = { nodes, links: visibleLinks };
+    }
   }
 
-  if (focus.startsWith('tool:') || focus.startsWith('cve:')) {
-    const connectedIds = new Set([focus]);
-    const visibleLinks = [];
-    for (const l of graph.brain.links) {
+  if (activeFilter) {
+    const matchingIds = new Set();
+    baseData.nodes.forEach(n => {
+      if (activeFilter === 'cve' && n.group === 'cve') matchingIds.add(n.id);
+      else if (activeFilter === 'mitre' && n.group === 'mitre') matchingIds.add(n.id);
+      else if (activeFilter === 'tool' && n.group === 'tool') matchingIds.add(n.id);
+      else if (activeFilter === 'file' && !n.group && !n.is_index && n.id !== HOME) matchingIds.add(n.id);
+      else if (activeFilter === 'index' && (n.is_index || n.id === HOME)) matchingIds.add(n.id);
+    });
+
+    const activeNodeIds = new Set(matchingIds);
+    const activeLinks = [];
+    baseData.links.forEach(l => {
       const s = typeof l.source === 'object' ? l.source.id : l.source;
       const t = typeof l.target === 'object' ? l.target.id : l.target;
-      if (s === focus || t === focus) {
-        connectedIds.add(s);
-        connectedIds.add(t);
-        visibleLinks.push(l);
+      if (matchingIds.has(s) || matchingIds.has(t)) {
+        activeNodeIds.add(s);
+        activeNodeIds.add(t);
+        activeLinks.push(l);
       }
-    }
-    const nodes = Array.from(connectedIds).map(id => nodeMap.get(id)).filter(Boolean);
-    return { nodes, links: visibleLinks };
+    });
+
+    const filteredNodes = baseData.nodes.filter(n => activeNodeIds.has(n.id));
+    return { nodes: filteredNodes, links: activeLinks };
   }
 
-  // 1. Gather all descendants of focus
-  const baseIds = new Set();
-  const addDescendants = (id) => {
-    baseIds.add(id);
-    const n = tree[id];
-    if (n && n.children) n.children.forEach(addDescendants);
-  };
-  addDescendants(focus);
-
-  // 2. Gather neural links where source is in baseIds (captures tools/CVEs)
-  const visibleIds = new Set([...baseIds]);
-  const visibleLinks = [];
-  const seenLinks = new Set();
-
-  for (const l of graph.brain.links) {
-    const s = l.source.id || l.source;
-    const t = l.target.id || l.target;
-    if (baseIds.has(s)) {
-      visibleIds.add(s);
-      visibleIds.add(t);
-      const key = s + '->' + t;
-      if (!seenLinks.has(key)) {
-        seenLinks.add(key);
-        visibleLinks.push(l);
-      }
-    }
-  }
-
-  // 3. Add hierarchy links for structure (parent-child)
-  for (const l of graph.hierarchy.links) {
-    const s = l.source.id || l.source;
-    const t = l.target.id || l.target;
-    if (baseIds.has(s) && baseIds.has(t)) {
-      const key = s + '->' + t;
-      if (!seenLinks.has(key)) {
-        seenLinks.add(key);
-        visibleLinks.push(l);
-      }
-    }
-  }
-
-  const nodes = Array.from(visibleIds).map(id => nodeMap.get(id)).filter(Boolean);
-  return { nodes, links: visibleLinks };
+  return baseData;
 };
 
 export default function NeuralGraph({ onReady }) {
   const [graph, setGraph] = useState(null);
   const [focus, setFocus] = useState(null);
+  const [activeFilter, setActiveFilter] = useState(null);
+  const [selectedNode, setSelectedNode] = useState(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const searchInputRef = useRef(null);
+  
   const [size, setSize] = useState({ width: 0, height: 0 });
   const [error, setError] = useState(null);
   const [isReady, setIsReady] = useState(false);
@@ -320,7 +359,36 @@ export default function NeuralGraph({ onReady }) {
     return () => ro.disconnect();
   }, []);
 
-  const visible = useMemo(() => buildVisible(graph, focus), [graph, focus]);
+  const visible = useMemo(() => buildVisible(graph, focus, activeFilter), [graph, focus, activeFilter]);
+
+  const selectedConnections = useMemo(() => {
+    if (!selectedNode || !graph || !graph.brain) return [];
+    const id = selectedNode.id;
+    const connected = [];
+    const allNodes = nodeMapRef.current;
+    for (const l of graph.brain.links) {
+      const s = typeof l.source === 'object' ? l.source.id : l.source;
+      const t = typeof l.target === 'object' ? l.target.id : l.target;
+      if (s === id && allNodes.has(t)) connected.push(allNodes.get(t));
+      else if (t === id && allNodes.has(s)) connected.push(allNodes.get(s));
+    }
+    return connected.slice(0, 16);
+  }, [selectedNode, graph]);
+
+  const searchResults = useMemo(() => {
+    if (!searchQuery.trim() || !graph || !graph.brain) return [];
+    const q = searchQuery.toLowerCase().trim();
+    const results = [];
+    for (const n of graph.brain.nodes) {
+      const label = (n.label || '').toLowerCase();
+      const id = (n.id || '').toLowerCase();
+      if (label.includes(q) || id.includes(q)) {
+        results.push(n);
+        if (results.length >= 8) break;
+      }
+    }
+    return results;
+  }, [searchQuery, graph]);
 
   useEffect(() => {
     const fg = graphRef.current;
@@ -341,8 +409,20 @@ export default function NeuralGraph({ onReady }) {
       fg.postProcessingComposer().addPass(bloomPass);
       bloomAddedRef.current = true;
     }
-    // Zoom handled by onEngineStop
   }, [visible]);
+
+  const focusOnNode = useCallback((node) => {
+    if (!node) return;
+    setSelectedNode(node);
+    if (graphRef.current && typeof node.x === 'number') {
+      const dist = 70;
+      graphRef.current.cameraPosition(
+        { x: node.x + dist, y: node.y + dist * 0.4, z: node.z + dist },
+        { x: node.x, y: node.y, z: node.z },
+        1000
+      );
+    }
+  }, []);
 
   const goTo = useCallback((nextFocus) => {
     const url = new URL(window.location.href);
@@ -350,39 +430,74 @@ export default function NeuralGraph({ onReady }) {
     else url.searchParams.delete('focus');
     window.history.pushState({}, '', url.toString());
     setFocus(nextFocus);
+    setSelectedNode(null);
   }, []);
 
   useEffect(() => {
+    const onFocusNodeEvent = (e) => {
+      if (!e.detail) return;
+      const targetId = e.detail.id;
+      const node = (nodeMapRef.current && nodeMapRef.current.get(targetId)) || 
+                   (graph && graph.brain && graph.brain.nodes.find(n => n.id === targetId || n.label === e.detail.label));
+      if (node) {
+        focusOnNode(node);
+      } else {
+        // Уязвимость из живого фида CISA KEV еще не задокументирована в репозитории
+        setSelectedNode({
+          id: e.detail.id,
+          label: e.detail.label,
+          group: 'cve',
+          unmapped: true,
+          cvss: e.detail.cvss,
+          epss: e.detail.epss,
+          description: e.detail.description,
+          url: e.detail.url || `https://nvd.nist.gov/vuln/detail/${e.detail.label}`
+        });
+      }
+    };
+    window.addEventListener('bugterium-focus-node', onFocusNodeEvent);
+    return () => window.removeEventListener('bugterium-focus-node', onFocusNodeEvent);
+  }, [graph, focusOnNode]);
+
+  useEffect(() => {
     const onKey = (e) => {
-      if (e.key !== 'Escape') return;
-      if (!focus) return;
-      if (focus.startsWith('tool:') || focus.startsWith('cve:')) { goTo(null); return; }
-      const node = graph && graph.hierarchy ? graph.hierarchy.tree[focus] : null;
-      goTo(node && node.parent ? node.parent : null);
+      if (e.key === '/' && document.activeElement !== searchInputRef.current) {
+        e.preventDefault();
+        setIsSearchOpen(true);
+        setTimeout(() => searchInputRef.current?.focus(), 50);
+        return;
+      }
+      if (e.key === 'Escape') {
+        if (isSearchOpen || searchQuery) {
+          setIsSearchOpen(false);
+          setSearchQuery('');
+          return;
+        }
+        if (selectedNode) {
+          setSelectedNode(null);
+          return;
+        }
+        if (!focus) return;
+        if (focus.startsWith('tool:') || focus.startsWith('cve:') || focus.startsWith('mitre:')) { goTo(null); return; }
+        const node = graph && graph.hierarchy ? graph.hierarchy.tree[focus] : null;
+        goTo(node && node.parent ? node.parent : null);
+      }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [focus, graph, goTo]);
+  }, [focus, graph, goTo, isSearchOpen, searchQuery, selectedNode]);
 
   const handleNodeClick = useCallback((node) => {
     if (!node) return;
-    if (node.id === HOME) { goTo(null); return; }
-    if (node.group === 'cve') {
-    if (node.url) window.location.href = node.url;
-    return;
-  }
-  if (node.group === 'tool') { goTo(node.id); return; }
-    const entry = graph && graph.hierarchy ? graph.hierarchy.tree[node.id] : null;
-    const hasChildren = entry && entry.children && entry.children.length > 0;
-    if (hasChildren) { goTo(node.id); return; }
-    if (node.url) window.location.href = node.url;
-  }, [graph, goTo]);
+    if (node.id === HOME) { goTo(null); setSelectedNode(null); return; }
+    focusOnNode(node);
+  }, [goTo, focusOnNode]);
 
   const crumbs = useMemo(() => {
     if (!graph || !graph.hierarchy) return [];
     const list = [{ id: HOME, label: 'Bugterium' }];
     if (!focus) return list;
-    if (focus.startsWith('tool:') || focus.startsWith('cve:')) {
+    if (focus.startsWith('tool:') || focus.startsWith('cve:') || focus.startsWith('mitre:')) {
       const n = graph.brain.nodes.find((x) => x.id === focus);
       list.push({ id: focus, label: n ? n.label : focus });
       return list;
@@ -399,9 +514,14 @@ export default function NeuralGraph({ onReady }) {
     }
     return list;
   }, [graph, focus]);
+
   const status = error
     ? 'LOAD ERROR: ' + error
     : visible.nodes.length + ' nodes / ' + visible.links.length + ' links' ;
+
+  const toggleFilter = (type) => {
+    setActiveFilter(prev => prev === type ? null : type);
+  };
 
   return (
     <div className="app">
@@ -425,9 +545,54 @@ export default function NeuralGraph({ onReady }) {
             );
           })}
         </nav>
-        <span className="status">{status}</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+          <div className="hud-search-wrap">
+            <input
+              ref={searchInputRef}
+              type="text"
+              className="hud-search-input"
+              placeholder="SEARCH NODES [/]..."
+              value={searchQuery}
+              onChange={(e) => {
+                setSearchQuery(e.target.value);
+                setIsSearchOpen(true);
+              }}
+              onFocus={() => setIsSearchOpen(true)}
+              onBlur={() => setTimeout(() => setIsSearchOpen(false), 200)}
+            />
+            {isSearchOpen && searchResults.length > 0 && (
+              <div className="hud-search-dropdown">
+                {searchResults.map((res) => {
+                  const grp = res.group || (res.is_index ? 'index' : 'file');
+                  return (
+                    <button
+                      key={res.id}
+                      type="button"
+                      className="hud-search-item"
+                      onMouseDown={(e) => {
+                        e.preventDefault();
+                        focusOnNode(res);
+                        setIsSearchOpen(false);
+                        setSearchQuery('');
+                      }}
+                    >
+                      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '170px' }}>
+                        {res.label || res.id}
+                      </span>
+                      <span className={`hud-search-badge badge-${grp}`}>
+                        {grp.toUpperCase()}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+          <span className="status">{status}</span>
+        </div>
       </header>
-                <main className="stage" ref={containerRef}>
+
+      <main className="stage" ref={containerRef}>
         {(!isReady || fading) && (
           <div className={"loading-overlay" + (fading ? " fading" : "")}>
             <div className="loading-text">INITIALIZING NEURAL PORT...</div>
@@ -435,15 +600,116 @@ export default function NeuralGraph({ onReady }) {
           </div>
         )}
 
-      <div className="legend-box">
-        
-        <div className="legend-items">
-        <div className="legend-item"><span className="legend-dot dot-cve"></span> <span className="legend-text">CVE</span></div>
-        <div className="legend-item"><span className="legend-dot dot-tool"></span> <span className="legend-text">Tool</span></div>
-        <div className="legend-item"><span className="legend-dot dot-file"></span> <span className="legend-text">File</span></div>
-        <div className="legend-item"><span className="legend-dot dot-home"></span> <span className="legend-text">Folder</span></div>
+        <div className="legend-box">
+          <div className="legend-items">
+            <div className={`legend-item ${activeFilter === 'cve' ? 'active' : ''}`} onClick={() => toggleFilter('cve')}>
+              <span className="legend-dot dot-cve"></span>
+              <span className="legend-text">CVE</span>
+            </div>
+            <div className={`legend-item ${activeFilter === 'mitre' ? 'active' : ''}`} onClick={() => toggleFilter('mitre')}>
+              <span className="legend-dot dot-mitre"></span>
+              <span className="legend-text">MITRE</span>
+            </div>
+            <div className={`legend-item ${activeFilter === 'tool' ? 'active' : ''}`} onClick={() => toggleFilter('tool')}>
+              <span className="legend-dot dot-tool"></span>
+              <span className="legend-text">Tool</span>
+            </div>
+            <div className={`legend-item ${activeFilter === 'file' ? 'active' : ''}`} onClick={() => toggleFilter('file')}>
+              <span className="legend-dot dot-file"></span>
+              <span className="legend-text">File</span>
+            </div>
+            <div className={`legend-item ${activeFilter === 'index' ? 'active' : ''}`} onClick={() => toggleFilter('index')}>
+              <span className="legend-dot dot-home"></span>
+              <span className="legend-text">Folder</span>
+            </div>
+            {activeFilter && (
+              <button type="button" className="legend-reset" onClick={() => setActiveFilter(null)}>
+                RESET FILTER
+              </button>
+            )}
+          </div>
         </div>
-      </div>
+
+        {selectedNode && (
+          <div className="entity-card">
+            <div className="entity-card-header">
+              <div className="entity-badge" data-group={selectedNode.group || (selectedNode.is_index ? 'index' : 'file')}>
+                {selectedNode.unmapped ? 'LIVE THREAT' : (selectedNode.group ? selectedNode.group.toUpperCase() : (selectedNode.is_index ? 'CATEGORY' : 'FILE'))}
+              </div>
+              <button type="button" className="entity-close-btn" onClick={() => setSelectedNode(null)} title="Close inspector">✕</button>
+            </div>
+            <div className="entity-title">{selectedNode.label || selectedNode.id}</div>
+            
+            {selectedNode.unmapped && (
+              <div style={{ background: 'rgba(255, 140, 0, 0.12)', border: '1px solid rgba(255, 140, 0, 0.4)', padding: '8px 10px', fontSize: '10px', color: '#ffb347', lineHeight: '1.4' }}>
+                <div style={{ fontWeight: '600', marginBottom: '4px' }}>⚡ CISA KEV ACTIVE ZERO-DAY</div>
+                <div>{selectedNode.description || 'Active exploited in the wild.'}</div>
+                {typeof selectedNode.cvss === 'number' && (
+                  <div style={{ marginTop: '6px', color: '#ffffff' }}>
+                    CVSS: <strong style={{ color: '#c00030' }}>{selectedNode.cvss.toFixed(1)}</strong> · EPSS: <strong>{((selectedNode.epss || 0) * 100).toFixed(1)}%</strong>
+                  </div>
+                )}
+                <div style={{ marginTop: '4px', color: '#aaaaaa', fontStyle: 'italic' }}>
+                  Not yet in local repository writeups.
+                </div>
+              </div>
+            )}
+
+            {!selectedNode.unmapped && selectedNode.group === 'cve' && (
+              <div className="entity-meta">Known Vulnerability Identifier · NVD NIST Reference Available</div>
+            )}
+            {selectedNode.group === 'mitre' && (
+              <div className="entity-meta">MITRE ATT&CK Adversary Technique · Enterprise Matrix</div>
+            )}
+            {selectedNode.group === 'tool' && (
+              <div className="entity-meta">Offensive / Defensive Tooling Reference</div>
+            )}
+            {!selectedNode.group && !selectedNode.is_index && (
+              <div className="entity-meta">Knowledge Base / HTB Walkthrough Reference</div>
+            )}
+
+            {selectedNode.url && (
+              <a 
+                href={selectedNode.url} 
+                target={selectedNode.url.startsWith('http') ? '_blank' : '_self'}
+                rel="noopener noreferrer"
+                className="entity-action-btn"
+              >
+                {selectedNode.url.startsWith('http') ? 'OPEN EXTERNAL REF ↗' : 'OPEN WRITEUP / DOC ↗'}
+              </a>
+            )}
+
+            {selectedNode.is_index && selectedNode.id !== HOME && (
+              <button 
+                type="button" 
+                className="entity-action-btn"
+                onClick={() => goTo(selectedNode.id)}
+              >
+                DRILL INTO SECTION ↓
+              </button>
+            )}
+
+            {selectedConnections.length > 0 && (
+              <div className="entity-connections">
+                <div className="entity-connections-title">CONNECTED NODES ({selectedConnections.length}):</div>
+                <div className="entity-tags">
+                  {selectedConnections.map(cn => (
+                    <button 
+                      key={cn.id} 
+                      type="button"
+                      className="entity-tag" 
+                      data-group={cn.group || 'file'}
+                      onClick={() => focusOnNode(cn)}
+                    >
+                      {cn.label || cn.id}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
         {size.width > 0 && visible.nodes.length > 0 && (
           <ForceGraph3D
             style={{ opacity: 1 }}
@@ -458,14 +724,14 @@ export default function NeuralGraph({ onReady }) {
             onNodeClick={handleNodeClick}
             onNodeHover={(node) => {
               if (!node) { document.body.style.cursor = 'default'; return; }
-              const isClickable = node.id === HOME || node.url || node.group === 'tool' || node.group === 'cve' || (node.children && node.children.length > 0);
-              document.body.style.cursor = isClickable ? 'pointer' : 'default';
+              document.body.style.cursor = 'pointer';
             }}
             linkColor={(l) => {
               const tgt = typeof l.target === 'object' ? l.target : { id: l.target };
               const src = typeof l.source === 'object' ? l.source : { id: l.source };
               if (tgt.group === 'tool' || src.group === 'tool') return '#c00030';
               if (tgt.group === 'cve' || src.group === 'cve') return '#ff8c00';
+              if (tgt.group === 'mitre' || src.group === 'mitre') return '#00ff66';
               return '#aaaaaa';
             }}
             linkThreeObject={getLinkObject}
@@ -489,11 +755,12 @@ export default function NeuralGraph({ onReady }) {
             }}
           />
         )}
-        {/* CUSTOM_NAV_TEXT */}
+        
         <div className='custom-nav-info'>
-          <div>Left-click: rotate</div>
-          <div>Mouse-wheel/middle-click: zoom</div>
+          <div>Left-click: inspect node / rotate</div>
+          <div>Mouse-wheel: zoom</div>
           <div>Right-click: pan</div>
+          <div>Key [/]: quick search · [Esc]: close/up</div>
         </div>
         {!error && (!graph || visible.nodes.length === 0) && (
           <p className="hint">{graph ? 'empty focus' : ''}</p>
@@ -501,7 +768,7 @@ export default function NeuralGraph({ onReady }) {
       </main>
       <footer className="hud foot">
         <span>SYSTEM READY</span>
-        <span>Press Esc to go up · click to drill in or visit</span>
+        <span>Press Esc to go up · click node to inspect · [/] to search</span>
       </footer>
     </div>
   );

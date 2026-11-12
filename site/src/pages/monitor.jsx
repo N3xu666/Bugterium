@@ -23,17 +23,53 @@ export default function MonitorPage() {
   const [focusPath, setFocusPath] = useState(null);
 
   const [layers, setLayers] = useState({
-    timeline: true, shield: true, threats: true, atmosphere: true,
+    timeline: true, shield: true, threats: true, atmosphere: true, arcs: true
   });
+
+  const getPathFamily = (path) => {
+    const p = (path || '').toLowerCase();
+    if (p.includes('.env') || p.includes('.git') || p.includes('.aws') || p.includes('id_rsa') || p.includes('credentials') || p.includes('config') || p.includes('.bak')) {
+      return { name: 'SECRET LEAK', color: '#c00030', refUrl: '/reference/applications/web/vulnerabilities/information-disclosure', desc: 'Sensitive credential / VCS exposure probe' };
+    }
+    if (p.includes('wp-') || p.includes('xmlrpc') || p.includes('wlwmanifest') || p.includes('wordpress')) {
+      return { name: 'WORDPRESS PROBE', color: '#ff8c00', refUrl: '/reference/applications/web/cms/wordpress', desc: 'CMS enumeration / XML-RPC pingback brute force' };
+    }
+    if (p.includes('actuator') || p.includes('swagger') || p.includes('api-docs') || p.includes('graphql') || p.includes('/api/')) {
+      return { name: 'API EXPOSURE', color: '#00e5ff', refUrl: '/reference/applications/api/owasp-api-top-10', desc: 'Unauthenticated API endpoint discovery' };
+    }
+    if (p.includes('phpmyadmin') || p.includes('pma') || p.includes('adminer') || p.includes('mysql') || p.includes('sql')) {
+      return { name: 'DATABASE PROBE', color: '#a855f7', refUrl: '/reference/applications/web/databases', desc: 'Database admin portal scanning' };
+    }
+    if (p.includes('docker') || p.includes('kube') || p.includes('v2/keys') || p.includes('.well-known')) {
+      return { name: 'CLOUD / INFRA', color: '#00ff66', refUrl: '/reference/cloud/kubernetes-cloud', desc: 'Container daemon or cloud metadata probing' };
+    }
+    if (p.includes('shell') || p.includes('cgi-bin') || p.includes('cmd') || p.includes('exec') || p.includes('eval')) {
+      return { name: 'RCE / PAYLOAD', color: '#ff0055', refUrl: '/reference/applications/web/vulnerabilities/command-injection', desc: 'Remote code execution payload probe' };
+    }
+    return { name: 'RECON PROBE', color: '#888888', refUrl: '/reference/applications/web/reconnaissance', desc: 'Automated crawler reconnaissance' };
+  };
+
+  const getUaCategory = (ua) => {
+    const u = (ua || '').toLowerCase();
+    if (u.includes('nmap') || u.includes('nikto') || u.includes('sqlmap') || u.includes('nuclei') || u.includes('masscan') || u.includes('censys') || u.includes('shodan') || u.includes('feroxbuster') || u.includes('gobuster') || u.includes('dirb') || u.includes('ffuf') || u.includes('zgrab')) {
+      return { name: 'SCANNER', color: '#ff0055' };
+    }
+    if (u.includes('python') || u.includes('go-http') || u.includes('curl') || u.includes('wget') || u.includes('okhttp') || u.includes('axios') || u.includes('node-fetch') || u.includes('java')) {
+      return { name: 'SCRIPT', color: '#ff8c00' };
+    }
+    if (u.includes('bot') || u.includes('spider') || u.includes('crawl') || u.includes('slurp')) {
+      return { name: 'CRAWLER', color: '#00e5ff' };
+    }
+    return { name: 'CLIENT', color: '#888888' };
+  };
 
   const toggleLayer = (key) => {
     setLayers(prev => ({ ...prev, [key]: !prev[key] }));
   };
 
   useEffect(() => {
-    const apiUrl = typeof window !== 'undefined' && window.location.hostname === 'localhost'
-      ? 'http://localhost:8787'
-      : 'https://bugterium-security-monitor.bugterium.workers.dev';
+    const REMOTE_API = 'https://bugterium-security-monitor.bugterium.workers.dev';
+    const LOCAL_API = 'http://localhost:8787';
     const FETCH_TIMEOUT_MS = 10000;
     let isMounted = true;
 
@@ -43,7 +79,22 @@ export default function MonitorPage() {
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
       try {
-        const response = await fetch(apiUrl, { signal: controller.signal });
+        let response = null;
+        // If on localhost, check if local wrangler is running on :8787, otherwise fallback to REMOTE_API!
+        if (typeof window !== 'undefined' && window.location.hostname === 'localhost') {
+          try {
+            const localCtrl = new AbortController();
+            const localTimer = setTimeout(() => localCtrl.abort(), 1200);
+            const localRes = await fetch(LOCAL_API, { signal: localCtrl.signal });
+            clearTimeout(localTimer);
+            if (localRes.ok) response = localRes;
+          } catch {
+            // Local worker not running, fallback to remote production worker
+          }
+        }
+        if (!response) {
+          response = await fetch(REMOTE_API, { signal: controller.signal });
+        }
         const result = await response.json();
         if (!isMounted) return;
         if (response.ok && result.status === 'ok') {
@@ -212,6 +263,24 @@ export default function MonitorPage() {
               <div className={styles.cardDesc} style={{ fontSize: '28px', color: '#ff8c00', marginTop: '4px', fontWeight: 'bold' }}>[ {(100 - parseFloat(security_metrics.health_percent || '100.0')).toFixed(1)}% ]</div>
             </div>
           </div>
+          <div className={styles.card}>
+            <div className={styles.cardLabel} style={{ fontSize: '12px' }}>
+              PROBE VECTORS <span style={{ fontSize: '9px', color: '#666', fontWeight: 'normal' }}>[CLASSIFIER]</span>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '10px' }}>
+              {[
+                { label: 'SECRET LEAKS (.env, .git)', count: path_data.attacks ? path_data.attacks.filter(p => getPathFamily(p.path).name === 'SECRET LEAK').reduce((a, b) => a + b.count, 0) : 0, color: '#c00030' },
+                { label: 'CMS & WORDPRESS', count: path_data.attacks ? path_data.attacks.filter(p => getPathFamily(p.path).name === 'WORDPRESS PROBE').reduce((a, b) => a + b.count, 0) : 0, color: '#ff8c00' },
+                { label: 'API EXPOSURE', count: path_data.attacks ? path_data.attacks.filter(p => getPathFamily(p.path).name === 'API EXPOSURE').reduce((a, b) => a + b.count, 0) : 0, color: '#00e5ff' },
+                { label: 'DATABASE PROBES', count: path_data.attacks ? path_data.attacks.filter(p => getPathFamily(p.path).name === 'DATABASE PROBE').reduce((a, b) => a + b.count, 0) : 0, color: '#a855f7' }
+              ].map((f, i) => (
+                <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', color: f.color, borderBottom: '1px solid #1a1a1a', paddingBottom: '3px' }}>
+                  <span>{f.label}</span>
+                  <span style={{ fontWeight: 'bold' }}>{f.count}</span>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
 
         {/* ЦЕНТРАЛЬНАЯ КОЛОНКА */}
@@ -233,6 +302,7 @@ export default function MonitorPage() {
               <div style={{ position: 'absolute', top: '20px', left: '20px', zIndex: 10, display: 'flex', flexDirection: 'column', gap: '9px', fontFamily: 'JetBrains Mono, monospace', fontSize: '10px', color: '#888', userSelect: 'none' }}>
                 {[
                   { key: 'threats', label: 'Events', color: '#ff8c00' },
+                  { key: 'arcs', label: 'Attack Vectors (Arcs)', color: '#ff0055' },
                   { key: 'shield', label: 'Defense In Depth', color: '#0000ff' },
                   { key: 'timeline', label: '24H Traffic Timeline', color: '#a855f7' }
                 ].map(item => (
@@ -255,7 +325,26 @@ export default function MonitorPage() {
               <BrowserOnly fallback={<div style={{ background: '#000', height: '100%' }} />}>
                 {() => (
                   <Suspense fallback={<div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%', color: '#c00030', fontFamily: 'JetBrains Mono, monospace' }}>Loading 3D Globe...</div>}>
-                    <SecurityGlobe geoData={displayGeoData} focusCoords={focusCoords} focusCountry={focusCountry} metrics={security_metrics} timeline={timeline} layers={layers} onCountryClick={(country) => { if (focusCountry === country) { setFocusCountry(null); setFocusCoords(null); } else { setFocusCountry(country); setFocusCoords({ lat: countryCoords[country][0], lng: countryCoords[country][1] }); } setFocusPath(null); }} />
+                    <SecurityGlobe 
+                      geoData={displayGeoData} 
+                      focusCoords={focusCoords} 
+                      focusCountry={focusCountry} 
+                      metrics={security_metrics} 
+                      timeline={timeline} 
+                      layers={layers} 
+                      focusPath={focusPath}
+                      viewMode={viewMode}
+                      onCountryClick={(country) => { 
+                        if (focusCountry === country) { 
+                          setFocusCountry(null); 
+                          setFocusCoords(null); 
+                        } else { 
+                          setFocusCountry(country); 
+                          setFocusCoords({ lat: countryCoords[country][0], lng: countryCoords[country][1] }); 
+                        } 
+                        setFocusPath(null); 
+                      }} 
+                    />
                   </Suspense>
                 )}
               </BrowserOnly>
@@ -325,25 +414,97 @@ export default function MonitorPage() {
             {/* Вкладка ПУТИ */}
             {activeTab === 'paths' && filteredPaths.slice(0, 15).map((item, idx) => {
               const isFocused = focusPath === item.path;
+              const family = getPathFamily(item.path);
               return (
-                <div key={idx} className={styles.threatCard} style={{ cursor: 'pointer', borderColor: isFocused ? '#c00030' : undefined, backgroundColor: isFocused ? 'rgba(192, 0, 48, 0.1)' : undefined }} onClick={() => handlePathClick(item.path)}>
-                  <div className={styles.threatHeader}>
-                    <div className={styles.threatId} style={{ fontSize: '11px', wordBreak: 'break-all', color: isFocused ? '#fff' : undefined }}>{item.path}</div>
-                    <div className={styles.threatRight}><div className={styles.threatCvss} style={{ color: isFocused ? '#fff' : undefined }}>{item.count}</div></div>
+                <div 
+                  key={idx} 
+                  className={styles.threatCard} 
+                  style={{ 
+                    cursor: 'pointer', 
+                    borderColor: isFocused ? '#c00030' : undefined, 
+                    backgroundColor: isFocused ? 'rgba(192, 0, 48, 0.12)' : undefined,
+                    padding: '10px 12px'
+                  }} 
+                  onClick={() => handlePathClick(item.path)}
+                >
+                  <div className={styles.threatHeader} style={{ marginBottom: isFocused ? '6px' : '4px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: 0, flex: 1 }}>
+                      <span style={{ 
+                        fontSize: '9px', 
+                        padding: '1px 5px', 
+                        letterSpacing: '0.05em', 
+                        fontWeight: '600', 
+                        color: family.color, 
+                        border: `1px solid ${family.color}`,
+                        background: 'rgba(0,0,0,0.5)',
+                        whiteSpace: 'nowrap'
+                      }}>
+                        {family.name}
+                      </span>
+                      <div className={styles.threatId} style={{ fontSize: '11px', wordBreak: 'break-all', color: isFocused ? '#fff' : undefined }}>
+                        {item.path}
+                      </div>
+                    </div>
+                    <div className={styles.threatRight}>
+                      <div className={styles.threatCvss} style={{ color: isFocused ? '#fff' : undefined }}>{item.count}</div>
+                    </div>
                   </div>
+                  {isFocused && (
+                    <div style={{ marginTop: '8px', paddingTop: '8px', borderTop: '1px solid #222', fontSize: '10px', color: '#aaa', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                      <div>{family.desc}</div>
+                      <a 
+                        href={family.refUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={(e) => e.stopPropagation()}
+                        style={{ 
+                          display: 'inline-flex', 
+                          alignItems: 'center', 
+                          gap: '4px', 
+                          color: '#ff8c00', 
+                          textDecoration: 'none',
+                          fontWeight: '600',
+                          fontSize: '10px'
+                        }}
+                      >
+                        <span>[📚 HOW TO DEFEND IN BUGTERIUM REF ↗]</span>
+                      </a>
+                    </div>
+                  )}
                 </div>
               );
             })}
 
             {/* Вкладка АГЕНТЫ */}
-            {activeTab === 'agents' && filteredAgents.slice(0, 10).map((item, idx) => (
-              <div key={idx} className={styles.threatCard} title={item.ua}>
-                <div className={styles.threatHeader}>
-                  <div className={styles.threatId} style={{ fontSize: '11px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '200px' }}>{item.ua}</div>
-                  <div className={styles.threatRight}><div className={styles.threatCvss}>{item.count}</div></div>
+            {activeTab === 'agents' && filteredAgents.slice(0, 10).map((item, idx) => {
+              const cat = getUaCategory(item.ua);
+              return (
+                <div key={idx} className={styles.threatCard} title={item.ua} style={{ padding: '8px 12px' }}>
+                  <div className={styles.threatHeader} style={{ marginBottom: '2px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: 0, flex: 1 }}>
+                      <span style={{ 
+                        fontSize: '9px', 
+                        padding: '1px 5px', 
+                        letterSpacing: '0.05em', 
+                        fontWeight: '600', 
+                        color: cat.color, 
+                        border: `1px solid ${cat.color}`,
+                        background: 'rgba(0,0,0,0.5)',
+                        whiteSpace: 'nowrap'
+                      }}>
+                        {cat.name}
+                      </span>
+                      <div className={styles.threatId} style={{ fontSize: '11px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '170px' }}>
+                        {item.ua}
+                      </div>
+                    </div>
+                    <div className={styles.threatRight}>
+                      <div className={styles.threatCvss}>{item.count}</div>
+                    </div>
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
 

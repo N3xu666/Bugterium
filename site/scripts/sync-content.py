@@ -10,6 +10,7 @@ BASES = {"reference": "/reference", "writeups": "/writeups"}
 
 TOOLS = ["nmap", "gobuster", "ffuf", "feroxbuster", "dirb", "nikto", "sqlmap", "burp", "metasploit", "hydra", "john", "hashcat", "impacket", "bloodhound", "mimikatz", "chisel", "netcat", "curl", "wget", "python", "bash", "powershell", "wmiexec", "psexec", "smbexec", "evil-winrm", "responder", "crackmapexec", "netexec", "enum4linux", "ldapsearch", "rpcclient", "smbclient", "ssh", "ftp", "telnet", "redis-cli", "mysql", "psql", "docker", "kubernetes", "jenkins", "jira", "gitlab", "tomcat", "apache", "nginx", "iis", "wordpress", "drupal", "joomla", "node.js", "express", "django", "flask", "spring", "laravel", "php", "ruby", "go", "rust", "react", "angular", "vue"]
 CVE_RE = re.compile(r"CVE-\d{4}-\d{4,}", re.IGNORECASE)
+MITRE_RE = re.compile(r"\bT\d{4}(?:\.\d{3})?\b")
 
 def fm(path):
     try:
@@ -40,7 +41,8 @@ def extract_entities(text):
         if re.search(r"\b" + re.escape(t) + r"\b", low):
             tools.add(t)
     cves = set(c.upper() for c in CVE_RE.findall(text))
-    return tools, cves
+    mitre = set(m.upper() for m in MITRE_RE.findall(text))
+    return tools, cves, mitre
 
 def walk():
     if not DOCS.exists():
@@ -96,7 +98,7 @@ def walk():
                 text = p.read_text(encoding="utf-8")
             except Exception:
                 text = ""
-            tools, cves = extract_entities(text)
+            tools, cves, mitre = extract_entities(text)
             
             # Связи с инструментами
             for t in tools:
@@ -111,6 +113,14 @@ def walk():
                 if cid not in neural_nodes:
                     neural_nodes[cid] = {"id": cid, "label": cve, "group": "cve", "val": 1.5, "url": f"https://nvd.nist.gov/vuln/detail/{cve}"}
                 neural_links.append({"source": nid, "target": cid})
+
+            # Связи с MITRE ATT&CK
+            for tech in mitre:
+                mid = "mitre:" + tech
+                if mid not in neural_nodes:
+                    tech_clean = tech.replace(".", "/")
+                    neural_nodes[mid] = {"id": mid, "label": tech, "group": "mitre", "val": 1.6, "url": f"https://attack.mitre.org/techniques/{tech_clean}/"}
+                neural_links.append({"source": nid, "target": mid})
     tree = {}
     for n in nodes:
         tree[n["id"]] = {
