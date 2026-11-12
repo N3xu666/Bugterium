@@ -91,9 +91,8 @@ No bug bounty is offered. Credit will be given in the advisory if desired.
 
 **Out of scope:**
 
-- Hack The Box platform itself (report to HTB support)
-- Third-party tools mentioned in walkthroughs (report to their maintainers)
 - The author's personal machine or local environment
+- Denial of Service (DoS/DDoS), brute-force, high-volume automated fuzzing, or resource exhaustion attacks against hosted web applications, APIs, or edge endpoints
 
 ## Build-time Dependencies and False Positives
 

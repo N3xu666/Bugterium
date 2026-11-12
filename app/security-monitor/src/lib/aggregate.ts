@@ -275,6 +275,14 @@ export function classifyProbeFamily(path: string): string | null {
   }
   return null;
 }
+
+// M-05/M-06 privacy sanitization: mask 32-hex paths (ownership checks, scanner hashes)
+export function sanitizeProbePath(path: string): string {
+  if (/^\/[0-9a-f]{32}$/i.test(path)) {
+    return '/[hex32]';
+  }
+  return path;
+}
 // M-04 (v2): Probe outcome split. Fixes "SUSPICIOUS = 100% - (2xx+3xx)".
 // Separates attack signals (not_found + blocked) from infrastructure errors (error).
 // Invariant: total = reached + not_found + blocked + error.
@@ -297,13 +305,18 @@ export function aggregateProbes(account: GraphQLAccountData): ProbesBreakdown {
     else error += g.count;
   }
 
-  const pathData: PathItem[] = [];
+  const pathMap = new Map<string, number>();
   for (const g of byPath) {
     const p = g.dimensions.clientRequestPath;
-    if (p) pathData.push({ path: p, count: g.count });
+    if (p) {
+      const sanitized = sanitizeProbePath(p);
+      pathMap.set(sanitized, (pathMap.get(sanitized) || 0) + g.count);
+    }
   }
-  pathData.sort((a, b) => b.count - a.count);
-  const top_paths = pathData.slice(0, 20);
+  const top_paths: PathItem[] = Array.from(pathMap.entries())
+    .map(([path, count]) => ({ path, count }))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 20);
 
   const by_outcome: ProbesOutcome = {
     reached,

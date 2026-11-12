@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll } from 'vitest';
-import { aggregate, aggregateTraffic, aggregateProbes, classifyProbeFamily } from '../src/lib/aggregate';
+import { aggregate, aggregateTraffic, aggregateProbes, classifyProbeFamily, sanitizeProbePath } from '../src/lib/aggregate';
 import type { GraphQLAccountData, MonitorResponse, AggregateTrafficConfig, ProbesBreakdown } from '../src/lib/types';
 import fixture from './fixtures/graphql-response.json';
 
@@ -230,6 +230,22 @@ describe('aggregateProbes() — M-04 (v2): probe outcome split', () => {
     expect(top_paths.length).toBeLessThanOrEqual(20);
   });
 
+  it('masks 32-hex paths in top_paths as [hex32]', () => {
+    const hex32Path = '/' + 'a'.repeat(32);
+    const account: GraphQLAccountData = {
+      ...getAccount(),
+      byPath: [
+        { count: 50, dimensions: { clientRequestPath: hex32Path } },
+        { count: 10, dimensions: { clientRequestPath: '/normal-path' } },
+      ],
+    };
+    const { top_paths } = aggregateProbes(account);
+    expect(top_paths).toEqual([
+      { path: '/[hex32]', count: 50 },
+      { path: '/normal-path', count: 10 },
+    ]);
+  });
+
   it('empty byStatusCountry => all outcomes 0, total 0', () => {
     const account: GraphQLAccountData = { ...getAccount(), byStatusCountry: [] };
     const r = aggregateProbes(account);
@@ -291,5 +307,18 @@ describe('aggregateProbes().families — M-06 (v2): per-family aggregation', () 
     const account: GraphQLAccountData = { ...getAccount(), byPath: [] };
     const r = aggregateProbes(account);
     expect(r.families).toEqual([]);
+  });
+});
+
+describe('sanitizeProbePath() — M-05/M-06 privacy sanitization', () => {
+  it('masks 32-hex path as /[hex32]', () => {
+    expect(sanitizeProbePath('/' + 'b'.repeat(32))).toBe('/[hex32]');
+    expect(sanitizeProbePath('/' + '0'.repeat(32))).toBe('/[hex32]');
+  });
+
+  it('preserves normal paths intact', () => {
+    expect(sanitizeProbePath('/')).toBe('/');
+    expect(sanitizeProbePath('/monitor')).toBe('/monitor');
+    expect(sanitizeProbePath('/wp-login.php')).toBe('/wp-login.php');
   });
 });
