@@ -60,6 +60,27 @@ export default function LiveThreats({ onSync }) {
           <div className={styles.threatHeader}>
             <span className={styles.threatId}>{cve.id}</span>
             <div className={styles.threatRight}>
+              <button
+                type="button"
+                className={styles.threatTargetBtn}
+                title="Focus on 3D Neural Graph"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  window.dispatchEvent(new CustomEvent('bugterium-focus-node', {
+                    detail: { 
+                      id: `cve:${cve.id}`, 
+                      label: cve.id,
+                      cvss: cve.cvss,
+                      epss: cve.epss,
+                      description: cve.description,
+                      url: cve.url
+                    }
+                  }));
+                }}
+              >
+                [⌖ FOCUS]
+              </button>
               <div className={styles.threatCvss}>
                 <span>CVSS</span>
                 <span>{cve.cvss.toFixed(1)}</span>

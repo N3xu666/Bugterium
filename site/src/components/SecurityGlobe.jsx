@@ -3,7 +3,7 @@ import Globe from 'react-globe.gl';
 import * as THREE from 'three';
 import { countryCoords } from './countryCoords';
 
-export default function SecurityGlobe({ geoData, focusCoords, focusCountry, metrics, layers, timeline, onCountryClick }) {
+export default function SecurityGlobe({ geoData, focusCoords, focusCountry, metrics, layers, timeline, onCountryClick, focusPath, viewMode }) {
   const globeEl = useRef();
   const containerRef = useRef();
   const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
@@ -202,6 +202,34 @@ export default function SecurityGlobe({ geoData, focusCoords, focusCountry, metr
     };
   }), [geoData, focusCountry, altitude]);
 
+  // --- ДУГИ АТАК (ATTACK ARCS) ---
+  const arcsData = useMemo(() => {
+    if (!geoData || geoData.length === 0) return [];
+    const dest = countryCoords['AZ'] || [40.14, 47.57];
+    return (geoData || [])
+      .filter(item => countryCoords[item.country] && item.country !== 'XX' && item.country !== 'AZ')
+      .map(item => {
+        const coords = countryCoords[item.country];
+        const isFocused = focusCountry === item.country;
+        const count = item.count || 1;
+        return {
+          startLat: coords[0],
+          startLng: coords[1],
+          endLat: dest[0],
+          endLng: dest[1],
+          name: `${item.country} → BUGTERIUM EDGE (${count} requests)`,
+          color: isFocused 
+            ? ['rgba(255, 0, 85, 0.95)', 'rgba(192, 0, 48, 1)'] 
+            : ['rgba(255, 140, 0, 0.85)', 'rgba(192, 0, 48, 0.9)'],
+          stroke: isFocused ? 0.9 : 0.45,
+          altitude: Math.min(0.45, 0.16 + Math.log10(Math.max(1, count)) * 0.08),
+          dashLength: 0.4,
+          dashGap: 0.2,
+          animateTime: 2200
+        };
+      });
+  }, [geoData, focusCountry]);
+
   const scannerRing = {
     lat: 90, lng: 0, maxR: 180, propSpeed: 45, period: 9999999, ringColor: 'rgba(0, 255, 204, 0.8)'
   };
@@ -315,6 +343,19 @@ export default function SecurityGlobe({ geoData, focusCoords, focusCountry, metr
           ringMaxRadius={(d) => d.maxR}
           ringPropagationSpeed={(d) => d.propSpeed}
           ringRepeatPeriod={(d) => d.period}
+
+          arcsData={layers.arcs !== false ? arcsData : []}
+          arcStartLat={(d) => d.startLat}
+          arcStartLng={(d) => d.startLng}
+          arcEndLat={(d) => d.endLat}
+          arcEndLng={(d) => d.endLng}
+          arcColor={(d) => d.color}
+          arcAltitude={(d) => d.altitude}
+          arcStroke={(d) => d.stroke}
+          arcDashLength={(d) => d.dashLength}
+          arcDashGap={(d) => d.dashGap}
+          arcDashAnimateTime={(d) => d.animateTime}
+          arcLabel={(d) => d.name}
 
           onZoom={({ altitude }) => setAltitude(altitude)}
           onGlobeReady={handleGlobeReady}

@@ -188,16 +188,55 @@
 .dot-file { background-color: #a855f7; color: #a855f7; }
 .dot-tool { background-color: #c00030; color: #c00030; margin-right: 5px !important; }
 .dot-cve { background-color: #ff8c00; color: #ff8c00; }
+.dot-mitre { background-color: #00ff66; color: #00ff66; }
 
 .legend-items {
   display: flex;
   flex-direction: column;
-  gap: 9px;
+  gap: 6px;
+  pointer-events: auto;
 }
 
 .legend-item {
   display: flex;
   align-items: center;
+  cursor: pointer;
+  padding: 2px 6px;
+  border: 1px solid transparent;
+  transition: all 0.15s ease;
+  user-select: none;
+}
+
+.legend-item:hover {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.15);
+}
+
+.legend-item.active {
+  background: rgba(192, 0, 48, 0.18);
+  border-color: #c00030;
+  color: #ffffff;
+}
+
+.legend-reset {
+  background: #141414;
+  border: 1px solid #333333;
+  color: #ff8800;
+  font-family: inherit;
+  font-size: 9px;
+  padding: 2px 6px;
+  cursor: pointer;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  margin-top: 4px;
+  transition: all 0.15s ease;
+  text-align: center;
+}
+
+.legend-reset:hover {
+  border-color: #ff8800;
+  color: #ffffff;
+  background: rgba(255, 136, 0, 0.15);
 }
 
 .legend-text {
@@ -366,3 +405,223 @@
   transition: opacity 0.5s ease-out;
   pointer-events: none;
 }
+
+/* --- HUD SEARCH BAR --- */
+.hud-search-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.hud-search-input {
+  background: rgba(10, 10, 10, 0.75);
+  border: 1px solid #333333;
+  color: #ffffff;
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 11px;
+  padding: 3px 8px;
+  width: 150px;
+  outline: none;
+  letter-spacing: 0.05em;
+  transition: width 0.25s ease, border-color 0.2s, background 0.2s;
+}
+
+.hud-search-input:focus {
+  width: 220px;
+  border-color: #c00030;
+  background: #000000;
+}
+
+.hud-search-dropdown {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  margin-top: 5px;
+  background: #0d0d0d;
+  border: 1px solid #262626;
+  border-top: 2px solid #c00030;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.9);
+  width: 260px;
+  max-height: 250px;
+  overflow-y: auto;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+}
+
+.hud-search-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 10px;
+  border: none;
+  border-bottom: 1px solid #161616;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 11px;
+  color: #cccccc;
+  background: transparent;
+  border-left: 2px solid transparent;
+  transition: background 0.15s, border-color 0.15s;
+  text-align: left;
+  width: 100%;
+}
+
+.hud-search-item:hover {
+  background: #181818;
+  border-left-color: #c00030;
+  color: #ffffff;
+}
+
+.hud-search-badge {
+  font-size: 9px;
+  padding: 1px 4px;
+  letter-spacing: 0.05em;
+  font-weight: 600;
+}
+
+.badge-cve { color: #ff8c00; border: 1px solid rgba(255, 140, 0, 0.4); }
+.badge-mitre { color: #00ff66; border: 1px solid rgba(0, 255, 102, 0.4); }
+.badge-tool { color: #c00030; border: 1px solid rgba(192, 0, 48, 0.4); }
+.badge-file { color: #a855f7; border: 1px solid rgba(168, 85, 247, 0.4); }
+.badge-index { color: #888888; border: 1px solid #333333; }
+
+/* --- ENTITY INSPECTOR CARD --- */
+.entity-card {
+  position: absolute;
+  right: 20px;
+  top: 20px;
+  width: 290px;
+  max-width: calc(100% - 40px);
+  background: rgba(10, 10, 10, 0.94);
+  backdrop-filter: blur(8px);
+  border: 1px solid #262626;
+  border-left: 3px solid #c00030;
+  padding: 14px;
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.9);
+  animation: slideInRight 0.2s ease-out;
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+}
+
+@keyframes slideInRight {
+  from { opacity: 0; transform: translateX(16px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+.entity-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.entity-badge {
+  font-size: 9px;
+  padding: 2px 6px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  font-weight: 600;
+}
+
+.entity-badge[data-group='cve'] { background: rgba(255, 140, 0, 0.15); color: #ff8c00; border: 1px solid #ff8c00; }
+.entity-badge[data-group='mitre'] { background: rgba(0, 255, 102, 0.15); color: #00ff66; border: 1px solid #00ff66; }
+.entity-badge[data-group='tool'] { background: rgba(192, 0, 48, 0.15); color: #c00030; border: 1px solid #c00030; }
+.entity-badge[data-group='file'] { background: rgba(168, 85, 247, 0.15); color: #a855f7; border: 1px solid #a855f7; }
+.entity-badge[data-group='index'] { background: rgba(255, 255, 255, 0.1); color: #ffffff; border: 1px solid #ffffff; }
+
+.entity-close-btn {
+  background: none;
+  border: none;
+  color: #777777;
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+  padding: 2px 4px;
+}
+
+.entity-close-btn:hover {
+  color: #ffffff;
+}
+
+.entity-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #ffffff;
+  word-break: break-all;
+  letter-spacing: 0.03em;
+}
+
+.entity-meta {
+  font-size: 10px;
+  color: #888888;
+  line-height: 1.4;
+}
+
+.entity-action-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 7px 12px;
+  background: #141414;
+  border: 1px solid #333333;
+  color: #ffffff;
+  text-decoration: none;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  transition: all 0.2s ease;
+  cursor: pointer;
+  margin-top: 4px;
+}
+
+.entity-action-btn:hover {
+  background: #c00030;
+  border-color: #c00030;
+  color: #ffffff;
+  text-decoration: none;
+}
+
+.entity-connections {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  border-top: 1px solid #222222;
+  padding-top: 8px;
+  margin-top: 2px;
+}
+
+.entity-connections-title {
+  font-size: 10px;
+  color: #777777;
+  letter-spacing: 0.08em;
+}
+
+.entity-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  max-height: 120px;
+  overflow-y: auto;
+}
+
+.entity-tag {
+  background: #141414;
+  border: 1px solid #282828;
+  color: #cccccc;
+  font-size: 9px;
+  padding: 2px 6px;
+  cursor: pointer;
+  font-family: inherit;
+  transition: border-color 0.15s, color 0.15s;
+}
+
+.entity-tag:hover {
+  border-color: #c00030;
+  color: #ffffff;
+}
+
+.entity-tag[data-group='cve']:hover { border-color: #ff8c00; }
+.entity-tag[data-group='mitre']:hover { border-color: #00ff66; }
+.entity-tag[data-group='tool']:hover { border-color: #c00030; }
