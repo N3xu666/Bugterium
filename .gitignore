@@ -20,6 +20,7 @@ desktop.ini
 # Internal workflow (not for public)
 MASTER_WORKFLOW.md
 APP_WORKFLOW.md
+AGENTS.md
 update-readmes.ps1
 _SITE_PLAN.md
 
