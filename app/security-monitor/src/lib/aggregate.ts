@@ -261,7 +261,11 @@ export const PROBE_FAMILIES: ReadonlyArray<{ family: string; pattern: RegExp }> 
   { family: 'shell',      pattern: /(shell\.(php|sh|cgi)|c99|r57)/i },
   { family: 'phpinfo',    pattern: /phpinfo\.php/i },
   { family: 'cgi_bin',    pattern: /cgi-bin\//i },
-  { family: 'actuator',   pattern: /\/actuator(\/|$)/i },
+  { family: 'actuator',   pattern: /\/actuator(\/|$)/i },  // Pass 197: expanded signature set from live recon (svn, ds_store, spip, hex32 ownership probes)
+  { family: 'svn',        pattern: /\.svn(\/|$)/i },
+  { family: 'ds_store',   pattern: /\.ds_store$/i },
+  { family: 'spip',       pattern: /spip\.php/i },
+  { family: 'hex32_probe',pattern: /^\/[0-9a-f]{32}$/i },
 ];
 
 export function classifyProbeFamily(path: string): string | null {

@@ -252,7 +252,11 @@ describe('classifyProbeFamily() — M-06 (v2): family signatures', () => {
     ['/shell.php', 'shell'],
     ['/phpinfo.php', 'phpinfo'],
     ['/cgi-bin/test.cgi', 'cgi_bin'],
-    ['/actuator/env', 'actuator'],
+    ['/actuator/env', 'actuator'],    // Pass 197: recon-driven signatures (svn, ds_store, spip, hex32 ownership probes)
+    ['/.svn/wc.db', 'svn'],
+    ['/.DS_Store', 'ds_store'],
+    ['/spip.php', 'spip'],
+    ['/3f82ae4a120302071f40250be8c2d6ec', 'hex32_probe'],
     // High-confidence-only: legit paths must NOT be flagged as families
     ['/admin/dashboard', null],
     ['/auth/login', null],
