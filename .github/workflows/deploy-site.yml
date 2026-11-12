@@ -44,7 +44,7 @@ jobs:
         run: npm run build
 
       - name: Deploy to Cloudflare Pages
-        run: npx wrangler pages deploy build --project-name=bugterium
+        run: npx wrangler@4.155.0 pages deploy build --project-name=bugterium
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
