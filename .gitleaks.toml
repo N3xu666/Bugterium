@@ -111,3 +111,9 @@ regexes = [
     '''id\s*=\s*"[0-9a-f]{32}"''',
     '''CF_ACCOUNT_ID\s*=\s*"[0-9a-f]{32}"'''
   ]
+
+  [[rules.allowlists]]
+  description = "Ignore 32-hex test fixtures in security-monitor tests"
+  paths = [
+    '''app/security-monitor/test/'''
+  ]
