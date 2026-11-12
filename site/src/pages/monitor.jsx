@@ -189,26 +189,26 @@ export default function MonitorPage() {
         {/* ЛЕВАЯ КОЛОНКА */}
         <div className={styles.leftCol}>
           <div className={styles.card}>
-            <div className={styles.cardLabel} style={{ fontSize: "16px" }}>REQUESTS (24H)</div>
+            <div className={styles.cardLabel} style={{ fontSize: "16px" }}>REQUESTS (24H) <span style={{ fontSize: '10px', color: '#666', fontWeight: 'normal', marginLeft: '4px' }}>[WORKERS]</span></div>
             <div className={styles.cardDesc} style={{ fontSize: "28px", color: "#ff8c00", marginTop: "10px", fontWeight: "bold" }}>{security_metrics.worker_requests_24h}</div>
           </div>
           <div className={styles.card}>
-            <div className={styles.cardLabel}>CLIENT ERRORS</div>
+            <div className={styles.cardLabel}>CLIENT ERRORS <span style={{ fontSize: '10px', color: '#666', fontWeight: 'normal', marginLeft: '4px' }}>[HTTP]</span></div>
             <div className={styles.cardDesc} style={{ fontSize: '28px', color: security_metrics.client_errors_4xx > 0 ? '#ff8c00' : '#fff', marginTop: '10px', fontWeight: 'bold', borderBottom: '1px solid #222', paddingBottom: '10px', paddingLeft: '4px' }}>{security_metrics.client_errors_4xx || 0}</div>
             <div style={{ marginTop: '10px' }}>{renderBreakdown(4, '#ff8c00')}</div>
           </div>
           <div className={styles.card}>
-            <div className={styles.cardLabel}>SERVER ERRORS</div>
+            <div className={styles.cardLabel}>SERVER ERRORS <span style={{ fontSize: '10px', color: '#666', fontWeight: 'normal', marginLeft: '4px' }}>[HTTP]</span></div>
             <div className={styles.cardDesc} style={{ fontSize: '28px', color: security_metrics.server_errors_5xx > 0 ? '#ff8c00' : '#fff', marginTop: '10px', fontWeight: 'bold', borderBottom: '1px solid #222', paddingBottom: '10px', paddingLeft: '4px' }}>{security_metrics.server_errors_5xx || 0}</div>
             <div style={{ marginTop: '10px' }}>{renderBreakdown(5, '#ff8c00')}</div>
           </div>
           <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
             <div className={styles.card} style={{ flex: 1, minWidth: 0, textAlign: 'center' }}>
-              <div className={styles.cardLabel} style={{ fontSize: '12px', letterSpacing: '0.05em', margin: 0 }}>LEGITIMATE</div>
+              <div className={styles.cardLabel} style={{ fontSize: '12px', letterSpacing: '0.05em', margin: 0 }}>LEGITIMATE <span style={{ fontSize: '9px', color: '#666', fontWeight: 'normal' }}>[HEURISTIC]</span></div>
               <div className={styles.cardDesc} style={{ fontSize: '28px', color: '#ff8c00', marginTop: '4px', fontWeight: 'bold' }}>[ {security_metrics.health_percent || '100.0'}% ]</div>
             </div>
             <div className={styles.card} style={{ flex: 1, minWidth: 0, textAlign: 'center' }}>
-              <div className={styles.cardLabel} style={{ fontSize: '12px', letterSpacing: '0.05em', margin: 0 }}>SUSPICIOUS</div>
+              <div className={styles.cardLabel} style={{ fontSize: '12px', letterSpacing: '0.05em', margin: 0 }}>SUSPICIOUS <span style={{ fontSize: '9px', color: '#666', fontWeight: 'normal' }}>[HEURISTIC]</span></div>
               <div className={styles.cardDesc} style={{ fontSize: '28px', color: '#ff8c00', marginTop: '4px', fontWeight: 'bold' }}>[ {(100 - parseFloat(security_metrics.health_percent || '100.0')).toFixed(1)}% ]</div>
             </div>
           </div>
@@ -265,7 +265,7 @@ export default function MonitorPage() {
 
         {/* ПРАВАЯ КОЛОНКА */}
         <div className={styles.rightCol}>
-          <div className={styles.threatsHeader}>TOP SOURCES</div>
+          <div className={styles.threatsHeader}>TOP SOURCES <span style={{ fontSize: '10px', color: '#666', fontWeight: 'normal', marginLeft: '4px' }}>[HTTP]</span></div>
 
           {/* Переключатель режима */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '5px', marginBottom: '15px', fontFamily: 'JetBrains Mono, monospace', fontSize: '11px', color: '#666' }}>
