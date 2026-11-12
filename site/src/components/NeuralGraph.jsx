@@ -308,6 +308,13 @@ export default function NeuralGraph({ onReady }) {
   const [error, setError] = useState(null);
   const [isReady, setIsReady] = useState(false);
   const [fading, setFading] = useState(false);
+  const fadeTimerRef = useRef(null);
+
+  useEffect(() => {
+    return () => {
+      if (fadeTimerRef.current) clearTimeout(fadeTimerRef.current);
+    };
+  }, []);
   
   useEffect(() => {
     if (isReady && onReady) onReady();
@@ -751,7 +758,8 @@ export default function NeuralGraph({ onReady }) {
             onEngineStop={() => {
               setIsReady(true);
               setFading(true);
-              setTimeout(() => setFading(false), 500);
+              if (fadeTimerRef.current) clearTimeout(fadeTimerRef.current);
+              fadeTimerRef.current = setTimeout(() => setFading(false), 500);
             }}
           />
         )}

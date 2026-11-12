@@ -6,8 +6,6 @@
 [![Docs: CC BY-NC 4.0](https://img.shields.io/badge/Docs-CC%20BY--NC%204.0-lightgrey.svg?style=flat-square)](https://creativecommons.org/licenses/by-nc/4.0/)
 [![Code: MIT](https://img.shields.io/badge/Code-MIT-blue.svg?style=flat-square)](https://opensource.org/licenses/MIT)
 
-<!-- ![Bugterium - trilingual HTB writeups, web application security reference, methodology and tools](./social-preview.png) -->
-
 New HTB machines are added as they are completed (retired only - see the stub scheme below for active machines). Reference material grows in parallel: the Application Security Reference (`APPLICATIONS/`), the Infrastructure Security Reference (`INFRASTRUCTURE/`), the AI Security Reference (`AI/`), the Anonymity, Privacy and OpSec Reference (`ANONYMITY-PRIVACY-OPSEC/`), the Network Security Reference (`NETWORKS/`), the Cloud Security Reference (`CLOUD/`), the Virtualization Security Reference (`VIRTUALIZATION/`), the Open-Source Intelligence Reference (`OSINT/`), the Information Security Management Reference (`INFORMATION_SECURITY/`), methodology notes, cheatsheets, and custom tooling (`tools/`).
 
 Writeups available in Az/En/Ru. Currently: **24 published (retired) + 8 active stubs** = **32 completed machines**.
