@@ -1,6 +1,7 @@
 import React, { useState, useEffect, Suspense, lazy } from 'react';
 import BrowserOnly from '@docusaurus/BrowserOnly';
 import Link from '@docusaurus/Link';
+import { useLocation, useHistory } from '@docusaurus/router';
 import styles from '../pages/index.module.css';
 import '../css/neural-graph.css';
 import { countryCoords } from './countryCoords';
@@ -128,13 +129,25 @@ const getUaCategory = (ua) => {
 };
 
 export default function OperationalCockpit({ defaultLens = null }) {
+  const location = useLocation();
+  const history = useHistory();
   const [activeLens, setActiveLensState] = useState(defaultLens);
+  const [lensMountKey, setLensMountKey] = useState(0);
   const [data, setData] = useState(FALLBACK_DATA);
   const [isLive, setIsLive] = useState(false);
   const [errorMsg, setErrorMsg] = useState(null);
-  const [lastSync, setLastSync] = useState(new Date().toISOString().replace('T', ' ').substring(0, 16) + ' GMT+4 [DEMO]');
-  const [displaySync, setDisplaySync] = useState('0000-00-00 00:00 GMT+4');
-  const [isAnimating, setIsAnimating] = useState(false);
+
+  // CVE Threat feed sync state (Нейропорт)
+  const [cveSync, setCveSync] = useState(null);
+  const [displayCveSync, setDisplayCveSync] = useState('0000-00-00 00:00 GMT+4');
+  const [isCveAnimating, setIsCveAnimating] = useState(false);
+  const [isGraphReady, setIsGraphReady] = useState(false);
+  const [isTextReady, setIsTextReady] = useState(false);
+
+  // Cloudflare Edge telemetry sync state (Глобус, Хаб)
+  const [telemetrySync, setTelemetrySync] = useState(null);
+  const [displayTelemetrySync, setDisplayTelemetrySync] = useState('0000-00-00 00:00 GMT+4');
+  const [isTelemetryAnimating, setIsTelemetryAnimating] = useState(false);
   
   // Globe specific telemetry states
   const [viewMode, setViewMode] = useState('traffic');
@@ -162,8 +175,19 @@ export default function OperationalCockpit({ defaultLens = null }) {
 
   // URL sync helper
   const setActiveLens = (lens) => {
+    if (lens === activeLens) return;
     setActiveLensState(lens);
-    if (typeof window !== 'undefined') {
+    if (lens === 'neural-port') {
+      setIsGraphReady(false);
+      setIsTextReady(false);
+      setIsCveAnimating(true);
+      setDisplayCveSync('0000-00-00 00:00 GMT+4');
+      setLensMountKey(k => k + 1);
+    }
+    const path = lens ? `/?lens=${lens}` : '/';
+    if (history && history.push) {
+      history.push(path);
+    } else if (typeof window !== 'undefined') {
       const url = new URL(window.location.href);
       if (lens) {
         url.searchParams.set('lens', lens);
@@ -174,25 +198,24 @@ export default function OperationalCockpit({ defaultLens = null }) {
     }
   };
 
-  // Handle URL reading on mount
+  // Sync with router location (e.g. top navbar clicks, browser Back/Forward)
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const p = new URLSearchParams(window.location.search);
-      const l = p.get('lens');
-      if (l) {
-        setActiveLensState(l);
-      } else if (defaultLens) {
-        setActiveLensState(defaultLens);
+    const p = new URLSearchParams(location.search);
+    const l = p.get('lens') || defaultLens || null;
+    setActiveLensState(prev => {
+      if (prev !== l) {
+        if (l === 'neural-port') {
+          setIsGraphReady(false);
+          setIsTextReady(false);
+          setIsCveAnimating(true);
+          setDisplayCveSync('0000-00-00 00:00 GMT+4');
+          setLensMountKey(k => k + 1);
+        }
+        return l;
       }
-
-      const onPop = () => {
-        const params = new URLSearchParams(window.location.search);
-        setActiveLensState(params.get('lens') || defaultLens || null);
-      };
-      window.addEventListener('popstate', onPop);
-      return () => window.removeEventListener('popstate', onPop);
-    }
-  }, [defaultLens]);
+      return prev;
+    });
+  }, [location.search, defaultLens]);
 
   // Global Escape key returns to Lenses grid if inside a lens
   useEffect(() => {
@@ -215,9 +238,26 @@ export default function OperationalCockpit({ defaultLens = null }) {
     return () => window.removeEventListener('keydown', onKey);
   }, [activeLens, focusCountry, focusPath]);
 
-  // Telemetry Fetching
+  // Pre-fetch CVE feed timestamp so it is immediately ready when opening Neural Port
   useEffect(() => {
-    const REMOTE_API = 'https://bugterium.pages.dev/api/snapshot';
+    fetch('/cve-feed.json', { cache: 'no-store' })
+      .then(res => res.ok ? res.json() : null)
+      .then(d => {
+        if (d && d.last_sync) {
+          const parts = d.last_sync.split(' ');
+          if (parts[0] && parts[0].includes('-')) {
+            const ymd = parts[0].split('-');
+            if (ymd.length === 3) parts[0] = ymd[2] + '-' + ymd[1] + '-' + ymd[0];
+          }
+          setCveSync(parts.join(' '));
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  // Telemetry Fetching (Cloudflare Edge Worker)
+  useEffect(() => {
+    const REMOTE_API = 'https://bugterium-security-monitor.bugterium.workers.dev';
     const FETCH_TIMEOUT_MS = 6000;
     let isMounted = true;
 
@@ -233,7 +273,7 @@ export default function OperationalCockpit({ defaultLens = null }) {
             const localTimer = setTimeout(() => localCtrl.abort(), 1200);
             const localProto = window.location.protocol === 'https:' ? 'https:' : 'http:';
             // nosemgrep: typescript.react.security.react-insecure-request.react-insecure-request
-            const localRes = await fetch(`${localProto}//127.0.0.1:8787/api/snapshot`, { signal: localCtrl.signal });
+            const localRes = await fetch(`${localProto}//127.0.0.1:8787`, { signal: localCtrl.signal });
             clearTimeout(localTimer);
             if (localRes.ok) response = localRes;
           } catch {
@@ -251,15 +291,19 @@ export default function OperationalCockpit({ defaultLens = null }) {
           setIsLive(true);
           const iso = result.meta && result.meta.generated_at ? result.meta.generated_at : new Date().toISOString();
           const gmt4 = new Date(new Date(iso).getTime() + (4 * 60 * 60 * 1000));
-          setLastSync(gmt4.toISOString().replace('T', ' ').substring(0, 16) + ' GMT+4');
+          setTelemetrySync(gmt4.toISOString().replace('T', ' ').substring(0, 16) + ' GMT+4');
         } else {
           setErrorMsg('WAITING FOR SNAPSHOT (CODE: ' + (result.code || response.status) + ')...');
           setIsLive(false);
+          const nowGmt4 = new Date(Date.now() + (4 * 60 * 60 * 1000));
+          setTelemetrySync(nowGmt4.toISOString().replace('T', ' ').substring(0, 16) + ' GMT+4');
         }
       } catch {
         if (!isMounted) return;
         setIsLive(false);
         setErrorMsg('OFFLINE MODE (FALLBACK TELEMETRY)');
+        const nowGmt4 = new Date(Date.now() + (4 * 60 * 60 * 1000));
+        setTelemetrySync(nowGmt4.toISOString().replace('T', ' ').substring(0, 16) + ' GMT+4');
       } finally {
         clearTimeout(timer);
       }
@@ -279,21 +323,49 @@ export default function OperationalCockpit({ defaultLens = null }) {
     };
   }, []);
 
-  // Sync ticker animation
+  // Scrambler animation for CVE feed sync (Neural Port)
   useEffect(() => {
-    setIsAnimating(true);
-    const target = lastSync;
+    if (activeLens !== 'neural-port' || !cveSync) return;
+    setIsCveAnimating(true);
+    setIsTextReady(false);
+    const target = cveSync;
     const chars = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ!@#$%^&*';
     let frame = 0;
     const interval = setInterval(() => {
-      frame += 0.2;
+      frame += 0.25;
       const revealed = target.slice(0, Math.floor(frame));
       const scrambled = target.slice(Math.floor(frame)).split('').map(() => chars[Math.floor(Math.random() * chars.length)]).join('');
-      setDisplaySync(revealed + scrambled);
-      if (frame >= target.length) clearInterval(interval);
+      setDisplayCveSync(revealed + scrambled);
+      if (frame >= target.length) {
+        clearInterval(interval);
+        setDisplayCveSync(target);
+        setIsCveAnimating(false);
+        setIsTextReady(true);
+      }
+    }, 35);
+    return () => clearInterval(interval);
+  }, [cveSync, activeLens, lensMountKey]);
+
+  // Scrambler animation for Cloudflare Telemetry sync (Globe, Hub)
+  useEffect(() => {
+    if (!telemetrySync) return;
+    setIsTelemetryAnimating(true);
+    const target = telemetrySync;
+    const chars = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ!@#$%^&*';
+    let frame = 0;
+    const interval = setInterval(() => {
+      frame += 0.35;
+      const revealed = target.slice(0, Math.floor(frame));
+      const scrambled = target.slice(Math.floor(frame)).split('').map(() => chars[Math.floor(Math.random() * chars.length)]).join('');
+      setDisplayTelemetrySync(revealed + scrambled);
+      if (frame >= target.length) {
+        clearInterval(interval);
+        setDisplayTelemetrySync(target);
+        setIsTelemetryAnimating(false);
+      }
     }, 30);
     return () => clearInterval(interval);
-  }, [lastSync]);
+  }, [telemetrySync]);
 
   const { security_metrics, geo_data, attacks_by_country, timeline, path_data, user_agent_data, status_breakdown } = data;
 
@@ -540,7 +612,14 @@ export default function OperationalCockpit({ defaultLens = null }) {
           {activeLens !== 'neural-port' && (
             <header className="hud">
               <span className="brand">
-                <span className="brand-prefix">BUGTERIUM</span>
+                <span 
+                  className="brand-prefix"
+                  onClick={() => setActiveLens(null)}
+                  style={{ cursor: 'pointer' }}
+                  title="Return to Lenses Hub"
+                >
+                  BUGTERIUM
+                </span>
                 <span className="sep">/</span> 
                 {activeLens === null ? (
                   'LENSES'
@@ -707,7 +786,12 @@ export default function OperationalCockpit({ defaultLens = null }) {
               <BrowserOnly fallback={<div style={{ background: '#000', height: '100%' }} />}>
                 {() => (
                   <Suspense fallback={<div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%', color: '#c00030', fontFamily: 'JetBrains Mono, monospace' }}>INITIALIZING NEURAL PORT...</div>}>
-                    <NeuralGraph embedded={true} onBackToLenses={() => setActiveLens(null)} />
+                    <NeuralGraph 
+                      key={'neural-graph-' + lensMountKey}
+                      embedded={true} 
+                      onBackToLenses={() => setActiveLens(null)} 
+                      onReady={() => setIsGraphReady(true)} 
+                    />
                   </Suspense>
                 )}
               </BrowserOnly>
@@ -763,7 +847,7 @@ export default function OperationalCockpit({ defaultLens = null }) {
         {activeLens === 'neural-port' && (
           <>
             <div className={styles.threatsHeader}>LIVE THREATS</div>
-            <LiveThreats onSync={setLastSync} />
+            <LiveThreats onSync={setCveSync} />
           </>
         )}
 
@@ -958,7 +1042,9 @@ export default function OperationalCockpit({ defaultLens = null }) {
       <div className={styles.leftFooter} style={{ display: 'flex', alignItems: 'center' }}>
         <svg width='14' height='14' viewBox='0 0 14 14' style={{ marginRight: '8px', transform: 'translateY(-0.5px)' }}>
           <circle cx='7' cy='7' r='5' fill='none' stroke='currentColor' strokeWidth='1' />
-          <circle cx='7' cy='7' r='2.5' fill='#c00030' />
+          {((activeLens === 'neural-port' ? (isGraphReady && isTextReady) : isLive)) && (
+            <circle cx='7' cy='7' r='2.5' fill='#c00030' />
+          )}
         </svg>
         SYSTEM READY
       </div>
@@ -972,12 +1058,12 @@ export default function OperationalCockpit({ defaultLens = null }) {
       <div className={styles.rightFooter} style={{ display: 'block', textAlign: 'center', width: '100%', padding: '10px 0' }}>
         <span style={{ display: 'inline-block', position: 'relative', transform: 'translateX(-6px)', whiteSpace: 'nowrap' }}>
           <span style={{ visibility: 'hidden', fontWeight: 'bold' }}>
-            <span>LAST SYNC:</span> 0000-00-00 00:00 GMT+4
+            <span>{activeLens === 'neural-port' ? 'LAST SYNC:' : (isLive ? 'LIVE SYNC:' : 'LAST SYNC:')}</span> 0000-00-00 00:00 GMT+4
           </span>
           <span style={{ position: 'absolute', left: 0, top: 0 }}>
-            <span className={isAnimating ? styles.blink : ''} style={{ color: '#c00030', fontWeight: 'bold', transition: 'opacity 0.5s ease-out' }}>
-              {isLive ? 'LIVE SYNC:' : 'LAST SYNC:'}
-            </span> {displaySync}
+            <span className={activeLens === 'neural-port' ? (isCveAnimating ? styles.blink : '') : (isTelemetryAnimating ? styles.blink : '')} style={{ color: '#c00030', fontWeight: 'bold', transition: 'opacity 0.5s ease-out' }}>
+              {activeLens === 'neural-port' ? 'LAST SYNC:' : (isLive ? 'LIVE SYNC:' : 'LAST SYNC:')}
+            </span> {activeLens === 'neural-port' ? displayCveSync : displayTelemetrySync}
           </span>
         </span>
       </div>
