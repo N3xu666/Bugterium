@@ -2,7 +2,7 @@
 // Phase 1 (Pass 193): ONLY scheduled() calls this. fetch() NEVER touches GraphQL.
 // Contract: throws on any error. Caller (scheduled) decides stale/KV fallback.
 
-import type { Env, GraphQLAccountData, GraphQLResponse } from './types';
+import type { Env, GraphQLAccountData, GraphQLAsnGroup, GraphQLResponse } from './types';
 
 const GRAPHQL_ENDPOINT = 'https://api.cloudflare.com/client/v4/graphql';
 
@@ -76,4 +76,56 @@ export async function fetchGraphQLAccount(
   }
 
   return account;
+}
+
+// TD #42 (Phase 2.5): Isolated secondary query for probe-traffic ASN groups.
+// Kept separate from GRAPHQL_QUERY so Cloudflare plan/schema limits on clientAsn
+// never break the primary snapshot cron.
+const GRAPHQL_ASN_QUERY = `
+  query getSecurityAsn($accountId: String!, $startTime: Time!) {
+    viewer {
+      accounts(filter: {accountTag: $accountId}) {
+        byAsn: httpRequestsAdaptiveGroups(
+          limit: 100
+          filter: {datetime_geq: $startTime, edgeResponseStatus_in: [403, 404, 429]}
+          orderBy: [count_DESC]
+        ) {
+          count
+          dimensions {
+            clientAsn
+            clientASNDescription
+            edgeResponseStatus
+          }
+        }
+      }
+    }
+  }
+`;
+
+export async function fetchGraphQLAsn(
+  env: Env,
+  startTime: string,
+): Promise<GraphQLAsnGroup[]> {
+  const gqlResponse = await fetch(GRAPHQL_ENDPOINT, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${env.CF_API_TOKEN}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      query: GRAPHQL_ASN_QUERY,
+      variables: { accountId: env.CF_ACCOUNT_ID, startTime },
+    }),
+  });
+
+  if (!gqlResponse.ok) {
+    throw new Error(`graphql_asn_http_${gqlResponse.status}`);
+  }
+
+  const body = (await gqlResponse.json()) as GraphQLResponse;
+  if (body.errors && body.errors.length > 0) {
+    throw new Error(`graphql_asn_errors_${body.errors.length}`);
+  }
+
+  return body.data?.viewer?.accounts?.[0]?.byAsn ?? [];
 }

@@ -32,7 +32,27 @@ import type {
   AuthBreakdown,
   BaselineLevel,
   BaselineBreakdown,
+  AttackerNetworkItem,
+  SpecialSourcesBreakdown,
 } from './types';
+
+const MAX_PROBE_PATH_LEN = 120;
+const MAX_UA_LEN = 256;
+const MAX_HOST_LEN = 255;
+const MAX_ASN_DESC_LEN = 80;
+const MAX_COUNTRY_LEN = 16;
+const PROBE_ATTACK_STATUSES = new Set<number>([403, 404, 429]);
+
+function isSafeRecordKey(key: string): boolean {
+  return key !== '__proto__' && key !== 'constructor' && key !== 'prototype';
+}
+
+// Strips ASCII control chars, non-ASCII / RTL bidi overrides (\u202e etc.), and angle brackets < >.
+export function sanitizeTelemetryText(input: string, maxLen: number): string {
+  // eslint-disable-next-line no-control-regex
+  const cleaned = input.replace(/[\u0000-\u001f\u007f-\uffff<>]/g, '');
+  return cleaned.length > maxLen ? cleaned.slice(0, maxLen) : cleaned;
+}
 
 // Preserved verbatim from pre-refactor line 152 — drives client-side ONLY BOTS filter (F-03).
 const ATTACK_PATH_REGEX =
@@ -80,7 +100,9 @@ export function aggregate(account: GraphQLAccountData, now: Date): MonitorRespon
 
   for (const group of httpGroups) {
     const status = group.dimensions.edgeResponseStatus;
-    const country = group.dimensions.clientCountryName || UNKNOWN_COUNTRY;
+    const rawCountry = group.dimensions.clientCountryName;
+    const cleanedCountry = rawCountry ? sanitizeTelemetryText(rawCountry, MAX_COUNTRY_LEN) : '';
+    const country = cleanedCountry || UNKNOWN_COUNTRY;
 
     if (status === 403) blocked403 += group.count;
     if (status === 429) blocked429 += group.count;
@@ -92,7 +114,7 @@ export function aggregate(account: GraphQLAccountData, now: Date): MonitorRespon
     if (status >= 400 && status < 500) clientErrors4xx += group.count;
     if (status >= 500) serverErrors5xx += group.count;
 
-    if (country !== UNKNOWN_COUNTRY) {
+    if (country !== UNKNOWN_COUNTRY && isSafeRecordKey(country)) {
       trafficByCountry[country] = (trafficByCountry[country] || 0) + group.count;
 
       // Attack classifier preserved verbatim (pre-refactor lines 137-140).
@@ -151,9 +173,11 @@ export function aggregate(account: GraphQLAccountData, now: Date): MonitorRespon
   const pathCountries: Record<string, Record<string, number>> = {};
   for (const g of byPathCountry) {
     const rawPath = g.dimensions.clientRequestPath;
-    const country = g.dimensions.clientCountryName;
-    if (rawPath && country && country !== UNKNOWN_COUNTRY) {
+    const rawCountry = g.dimensions.clientCountryName;
+    const country = rawCountry ? sanitizeTelemetryText(rawCountry, MAX_COUNTRY_LEN) : '';
+    if (rawPath && country && country !== UNKNOWN_COUNTRY && isSafeRecordKey(country)) {
       const path = sanitizeProbePath(rawPath);
+      if (!isSafeRecordKey(path)) continue;
       if (!pathCountries[path]) pathCountries[path] = {};
       pathCountries[path][country] = (pathCountries[path][country] || 0) + g.count;
     }
@@ -169,7 +193,10 @@ export function aggregate(account: GraphQLAccountData, now: Date): MonitorRespon
   const uaTraffic: Record<string, number> = {};
   const uaAttacks: Record<string, number> = {};
   for (const g of byUserAgent) {
-    const ua = g.dimensions.userAgent || UNKNOWN_UA;
+    const rawUa = g.dimensions.userAgent;
+    const sanitizedUa = rawUa ? sanitizeTelemetryText(rawUa, MAX_UA_LEN) : '';
+    const ua = sanitizedUa || UNKNOWN_UA;
+    if (!isSafeRecordKey(ua)) continue;
     const status = g.dimensions.edgeResponseStatus;
     if (status === 403 || status === 404 || status === 429) {
       uaAttacks[ua] = (uaAttacks[ua] || 0) + g.count;
@@ -231,7 +258,8 @@ export function aggregateTraffic(
   const hosts: HostTrafficItem[] = [];
 
   for (const g of byHost) {
-    const host = g.dimensions.clientRequestHTTPHost ?? '';
+    const rawHost = g.dimensions.clientRequestHTTPHost ?? '';
+    const host = sanitizeTelemetryText(rawHost, MAX_HOST_LEN);
     totalHttp += g.count;
     if (host) hosts.push({ host, count: g.count });
     if (config.siteHost && host === config.siteHost) siteRequests += g.count;
@@ -304,12 +332,23 @@ export function classifyProbeFamily(path: string): string | null {
   return null;
 }
 
-// M-05/M-06 privacy sanitization: mask 32-hex paths (ownership checks, scanner hashes)
+// M-05/M-06 & TD #42 privacy/security sanitization (§12.D):
+// strip query/fragment, strip control/non-ASCII/RTL/<>/%3c/%3e, mask UUIDs & long hex, cap at 120 chars.
 export function sanitizeProbePath(path: string): string {
-  if (/^\/[0-9a-f]{32}$/i.test(path)) {
+  const withoutQuery = path.split(/[?#]/, 1)[0] ?? '';
+  const withoutEncodedAngles = withoutQuery.replace(/%3[ce]/gi, '');
+  let cleaned = sanitizeTelemetryText(withoutEncodedAngles, withoutQuery.length);
+  if (/^\/[0-9a-f]{32}$/i.test(cleaned)) {
     return '/[hex32]';
   }
-  return path;
+  cleaned = cleaned
+    .replace(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi, '[uuid]')
+    .replace(/(^|\/)[0-9a-f]{32}(?=\/|$)/gi, '$1[hex32]')
+    .replace(/(^|\/)[0-9a-f]{33,}(?=\/|$)/gi, '$1[hex]');
+  if (!cleaned) {
+    return '/[sanitized]';
+  }
+  return cleaned.length > MAX_PROBE_PATH_LEN ? cleaned.slice(0, MAX_PROBE_PATH_LEN) : cleaned;
 }
 // M-04 (v2): Probe outcome split. Fixes "SUSPICIOUS = 100% - (2xx+3xx)".
 // Separates attack signals (not_found + blocked) from infrastructure errors (error).
@@ -565,5 +604,71 @@ export function computeBaseline(
     ratio,
     level,
     hourly_history,
+  };
+}
+
+// TD #42 (Phase 2.5): Probe-traffic ASN aggregation (k >= 5, 0 IPs).
+export function aggregateAttackerNetworks(
+  account: GraphQLAccountData,
+  minK = 5,
+): AttackerNetworkItem[] {
+  const byAsn = account.byAsn ?? [];
+  const merged = new Map<number, { description: string; count: number }>();
+
+  for (const g of byAsn) {
+    const status = g.dimensions.edgeResponseStatus;
+    if (!PROBE_ATTACK_STATUSES.has(status)) continue;
+
+    const asn = Number(g.dimensions.clientAsn);
+    if (!Number.isInteger(asn) || asn <= 0) continue;
+
+    const rawDesc = g.dimensions.clientASNDescription ?? '';
+    const desc = sanitizeTelemetryText(rawDesc, MAX_ASN_DESC_LEN).trim() || 'UNKNOWN';
+    const existing = merged.get(asn);
+    if (existing) {
+      existing.count += g.count;
+      if (existing.description === 'UNKNOWN' && desc !== 'UNKNOWN') {
+        existing.description = desc;
+      }
+    } else {
+      merged.set(asn, { description: desc, count: g.count });
+    }
+  }
+
+  return Array.from(merged.entries())
+    .filter(([, entry]) => entry.count >= minK)
+    .map(([asn, entry]) => ({ asn, description: entry.description, count: entry.count }))
+    .sort((a, b) => b.count - a.count || a.asn - b.asn)
+    .slice(0, 20);
+}
+
+// TD #42 (Phase 2.5): Separate Tor (T1) and Unknown (XX / null / Unknown) counters.
+export function aggregateSpecialSources(
+  account: GraphQLAccountData,
+): SpecialSourcesBreakdown {
+  const httpGroups = account.byStatusCountry ?? [];
+  let torRequests = 0;
+  let unknownGeo = 0;
+
+  for (const g of httpGroups) {
+    const raw = g.dimensions.clientCountryName;
+    const cleaned = raw ? sanitizeTelemetryText(raw, MAX_COUNTRY_LEN) : '';
+    if (cleaned === 'T1') {
+      torRequests += g.count;
+    } else if (!cleaned || cleaned === 'XX' || cleaned === UNKNOWN_COUNTRY) {
+      unknownGeo += g.count;
+    }
+  }
+
+  const by_code: GeoDataItem[] = [];
+  if (torRequests > 0) by_code.push({ country: 'T1', count: torRequests });
+  if (unknownGeo > 0) by_code.push({ country: 'XX', count: unknownGeo });
+  by_code.sort((a, b) => b.count - a.count);
+
+  return {
+    tor_requests: torRequests,
+    unknown_geo: unknownGeo,
+    total: torRequests + unknownGeo,
+    by_code,
   };
 }
