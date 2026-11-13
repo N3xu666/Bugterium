@@ -502,7 +502,7 @@ button[class*='toggleButton'] {
 
 /* === CRUMBS LOGIC (ACTIVE VS INACTIVE) === */
 .crumbs button.crumb {
-  font-weight: bold !important;
+  font-weight: 400 !important;
   background: transparent !important;
   border: none !important;
   padding: 0 !important;

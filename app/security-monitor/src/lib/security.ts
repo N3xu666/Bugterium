@@ -9,6 +9,7 @@ import { errorResponse } from './errors';
 const ALLOWED_ORIGINS = new Set<string>([
   'https://bugterium.pages.dev',
   'http://localhost:3000',
+  'http://127.0.0.1:3000',
 ]);
 
 const ALLOWED_METHODS = new Set<string>(['GET', 'HEAD', 'OPTIONS']);
