@@ -88,11 +88,92 @@ const TACTICS_DATA = [
   }
 ];
 
-export default function AttackMatrix() {
+const TECHNIQUE_TELEMETRY_MAP = {
+  T1595: {
+    sourceLabel: 'hex32_probe + phpinfo + ua_scanner',
+    countFromSnapshot: (snap) => {
+      const families = snap?.probes?.families || [];
+      const uas = snap?.ua_families || [];
+      const hex = families.find((f) => f.family === 'hex32_probe')?.count || 0;
+      const php = families.find((f) => f.family === 'phpinfo')?.count || 0;
+      const scan = uas.find((u) => u.family === 'scanner')?.count || 0;
+      const auto = uas.find((u) => u.family === 'automation')?.count || 0;
+      return hex + php + scan + auto;
+    }
+  },
+  T1190: {
+    sourceLabel: 'wordpress + api_probe + db_probe',
+    countFromSnapshot: (snap) => {
+      const families = snap?.probes?.families || [];
+      return families
+        .filter((f) => f.family === 'wordpress' || f.family === 'api_probe' || f.family === 'db_probe')
+        .reduce((acc, f) => acc + (f.count || 0), 0);
+    }
+  },
+  T1505: {
+    sourceLabel: 'probes.families: shell',
+    countFromSnapshot: (snap) => {
+      const families = snap?.probes?.families || [];
+      return families.find((f) => f.family === 'shell')?.count || 0;
+    }
+  },
+  T1552: {
+    sourceLabel: 'env_file + git + aws_creds',
+    countFromSnapshot: (snap) => {
+      const families = snap?.probes?.families || [];
+      return families
+        .filter((f) => f.family === 'env_file' || f.family === 'git' || f.family === 'aws_creds')
+        .reduce((acc, f) => acc + (f.count || 0), 0);
+    }
+  },
+  T1110: {
+    sourceLabel: 'auth.totals (login_fail + forbidden)',
+    countFromSnapshot: (snap) => {
+      if (!snap?.auth?.totals) return 0;
+      return (snap.auth.totals.login_fail || 0) + (snap.auth.totals.forbidden || 0);
+    }
+  },
+  T1046: {
+    sourceLabel: 'ua_families (scanner + crawler)',
+    countFromSnapshot: (snap) => {
+      const uas = snap?.ua_families || [];
+      return uas
+        .filter((u) => u.family === 'scanner' || u.family === 'crawler')
+        .reduce((acc, u) => acc + (u.count || 0), 0);
+    }
+  }
+};
+
+export default function AttackMatrix({ snapshot = null }) {
   const [selectedTech, setSelectedTech] = useState(null);
   const [filter, setFilter] = useState('all');
 
-  const filteredTactics = TACTICS_DATA.map(tactic => ({
+  const hasTelemetry = Boolean(snapshot && (snapshot.probes || snapshot.ua_families || snapshot.auth));
+
+  const enrichedTactics = TACTICS_DATA.map((tactic) => ({
+    ...tactic,
+    techniques: tactic.techniques.map((tech) => {
+      const binding = TECHNIQUE_TELEMETRY_MAP[tech.id];
+      const liveHits = hasTelemetry && binding ? binding.countFromSnapshot(snapshot) : null;
+      const status = hasTelemetry && binding
+        ? (liveHits > 0 ? 'probed' : 'researched')
+        : tech.status;
+      return {
+        ...tech,
+        status,
+        liveHits,
+        sourceLabel: binding ? binding.sourceLabel : null
+      };
+    })
+  }));
+
+  const totalTechniques = enrichedTactics.reduce((acc, t) => acc + t.techniques.length, 0);
+  const probedCount = enrichedTactics.reduce(
+    (acc, t) => acc + t.techniques.filter((tech) => tech.status === 'probed').length,
+    0
+  );
+
+  const filteredTactics = enrichedTactics.map(tactic => ({
     ...tactic,
     techniques: tactic.techniques.filter(tech => {
       if (filter === 'researched') return tech.status === 'researched';
@@ -105,7 +186,7 @@ export default function AttackMatrix() {
     <div style={{
       width: '100%',
       height: '100%',
-      backgroundColor: '#050505',
+      backgroundColor: '#000000',
       color: '#d7d7d7',
       fontFamily: 'JetBrains Mono, monospace',
       display: 'flex',
@@ -119,7 +200,7 @@ export default function AttackMatrix() {
         display: 'flex',
         justifyContent: 'space-between',
         alignItems: 'center',
-        borderBottom: '1px solid #222',
+        borderBottom: '1px solid #1a1a1a',
         paddingBottom: '12px',
         marginBottom: '14px',
         flexShrink: 0
@@ -128,8 +209,8 @@ export default function AttackMatrix() {
           <span style={{ color: '#00ff66', fontWeight: 'bold', fontSize: '13px', letterSpacing: '0.08em' }}>
             [ ATT&CK COVERAGE MATRIX ]
           </span>
-          <span style={{ fontSize: '10px', color: '#666', border: '1px solid #333', padding: '2px 6px' }}>
-            TLP:CLEAR // MITRE ENTERPRISE v14
+          <span style={{ fontSize: '10px', color: '#6a6a6a', border: '1px solid #282828', padding: '2px 6px' }}>
+            {probedCount} PROBED (24H) // {totalTechniques} MAPPED ({TACTICS_DATA.length} TACTICS)
           </span>
         </div>
 
@@ -138,15 +219,15 @@ export default function AttackMatrix() {
           <button
             onClick={() => setFilter('all')}
             style={{
-              background: filter === 'all' ? '#222' : 'transparent',
-              color: filter === 'all' ? '#fff' : '#666',
-              border: '1px solid #333',
+              background: filter === 'all' ? '#1a1a1a' : 'transparent',
+              color: filter === 'all' ? '#ffffff' : '#6a6a6a',
+              border: '1px solid #282828',
               padding: '3px 8px',
               cursor: 'pointer',
               fontFamily: 'inherit'
             }}
           >
-            ALL
+            ALL ({totalTechniques})
           </button>
           <button
             onClick={() => setFilter('researched')}
@@ -159,7 +240,7 @@ export default function AttackMatrix() {
               fontFamily: 'inherit'
             }}
           >
-            RESEARCHED (BASE)
+            RESEARCHED ({totalTechniques - probedCount})
           </button>
           <button
             onClick={() => setFilter('probed')}
@@ -172,7 +253,7 @@ export default function AttackMatrix() {
               fontFamily: 'inherit'
             }}
           >
-            PROBED LIVE (EDGE)
+            PROBED LIVE ({probedCount})
           </button>
         </div>
       </div>
@@ -196,22 +277,21 @@ export default function AttackMatrix() {
               flexDirection: 'column',
               backgroundColor: '#0a0a0a',
               border: '1px solid #1a1a1a',
-              borderRadius: '2px',
               overflow: 'hidden'
             }}
           >
             {/* TACTIC HEADER */}
             <div style={{
               padding: '8px',
-              borderBottom: '1px solid #222',
-              backgroundColor: '#111',
+              borderBottom: '1px solid #1a1a1a',
+              backgroundColor: '#0a0a0a',
               fontSize: '11px',
               fontWeight: 'bold',
               color: '#ff8c00',
               letterSpacing: '0.04em'
             }}>
               <div>{tactic.name}</div>
-              <div style={{ fontSize: '9px', color: '#555', fontWeight: 'normal', marginTop: '2px' }}>{tactic.id}</div>
+              <div style={{ fontSize: '9px', color: '#6a6a6a', fontWeight: 'normal', marginTop: '2px' }}>{tactic.id}</div>
             </div>
 
             {/* TECHNIQUES LIST */}
@@ -220,8 +300,8 @@ export default function AttackMatrix() {
                 const isSelected = selectedTech?.id === tech.id;
                 const isProbed = tech.status === 'probed';
                 const color = isProbed ? '#c00030' : '#00ff66';
-                const bg = isSelected ? '#1f1f1f' : (isProbed ? 'rgba(192, 0, 48, 0.08)' : 'rgba(0, 255, 102, 0.05)');
-                const border = isSelected ? '1px solid #c00030' : (isProbed ? '1px solid rgba(192, 0, 48, 0.4)' : '1px solid rgba(0, 255, 102, 0.25)');
+                const bg = isSelected ? '#1a1a1a' : (isProbed ? 'rgba(192, 0, 48, 0.10)' : 'rgba(0, 255, 102, 0.05)');
+                const border = isSelected ? '1px solid #c00030' : (isProbed ? '1px solid rgba(192, 0, 48, 0.45)' : '1px solid rgba(0, 255, 102, 0.25)');
 
                 return (
                   <div
@@ -232,23 +312,24 @@ export default function AttackMatrix() {
                       backgroundColor: bg,
                       border: border,
                       cursor: 'pointer',
-                      transition: 'all 0.15s',
-                      borderRadius: '2px'
+                      transition: 'all 0.15s'
                     }}
                   >
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '9px', marginBottom: '2px' }}>
                       <span style={{ color: color, fontWeight: 'bold' }}>{tech.id}</span>
-                      <span style={{ fontSize: '8px', color: isProbed ? '#c00030' : '#00ff66' }}>
-                        {isProbed ? '⚡ PROBED' : '✓ COVERED'}
+                      <span style={{ fontSize: '8px', color: isProbed ? '#c00030' : '#00ff66', fontWeight: isProbed ? 'bold' : 'normal' }}>
+                        {isProbed
+                          ? (tech.liveHits !== null ? `PROBED (${tech.liveHits})` : 'PROBED')
+                          : 'COVERED'}
                       </span>
                     </div>
-                    <div style={{ fontSize: '10px', color: '#eee', lineHeight: '1.2' }}>{tech.name}</div>
+                    <div style={{ fontSize: '10px', color: '#ffffff', lineHeight: '1.2' }}>{tech.name}</div>
                   </div>
                 );
               })}
               {tactic.techniques.length === 0 && (
-                <div style={{ fontSize: '10px', color: '#444', fontStyle: 'italic', padding: '10px 4px', textAlign: 'center' }}>
-                  No active filters
+                <div style={{ fontSize: '10px', color: '#6a6a6a', fontStyle: 'italic', padding: '10px 4px', textAlign: 'center' }}>
+                  No matching techniques
                 </div>
               )}
             </div>
@@ -261,27 +342,33 @@ export default function AttackMatrix() {
         <div style={{
           marginTop: '10px',
           padding: '12px 16px',
-          border: '1px solid #333',
-          backgroundColor: '#0e0e0e',
+          border: '1px solid #282828',
+          backgroundColor: '#0a0a0a',
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
+          gap: '12px',
           flexShrink: 0
         }}>
           <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '4px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '4px', flexWrap: 'wrap' }}>
               <span style={{ color: selectedTech.status === 'probed' ? '#c00030' : '#00ff66', fontWeight: 'bold', fontSize: '13px' }}>
                 [{selectedTech.id}] {selectedTech.name}
               </span>
-              <span style={{ fontSize: '10px', color: '#aaa', border: '1px solid #333', padding: '1px 5px' }}>
+              <span style={{ fontSize: '10px', color: '#d7d7d7', border: '1px solid #282828', padding: '1px 5px' }}>
                 STATUS: {selectedTech.status === 'probed' ? 'OBSERVED IN EDGE TELEMETRY' : 'RESEARCHED IN BUGTERIUM CANON'}
               </span>
+              {selectedTech.sourceLabel && (
+                <span style={{ fontSize: '10px', color: '#ff8c00', border: '1px solid #282828', padding: '1px 5px' }}>
+                  24H HITS: {selectedTech.liveHits ?? 0} ({selectedTech.sourceLabel})
+                </span>
+              )}
             </div>
-            <div style={{ fontSize: '11px', color: '#888' }}>
+            <div style={{ fontSize: '11px', color: '#888888' }}>
               {selectedTech.desc}
             </div>
           </div>
-          <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+          <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexShrink: 0 }}>
             {selectedTech.ref && (
               <a
                 href={selectedTech.ref}
@@ -303,8 +390,8 @@ export default function AttackMatrix() {
               onClick={() => setSelectedTech(null)}
               style={{
                 background: 'transparent',
-                border: '1px solid #444',
-                color: '#aaa',
+                border: '1px solid #282828',
+                color: '#d7d7d7',
                 cursor: 'pointer',
                 fontFamily: 'inherit',
                 padding: '4px 8px'

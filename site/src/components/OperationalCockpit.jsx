@@ -808,29 +808,43 @@ export default function OperationalCockpit({ defaultLens = null }) {
         {activeLens === 'attack-matrix' && (
           <>
             <div className={styles.card}>
-              <div className={styles.cardLabel}>MITRE ATT&CK SCOPE</div>
+              <div className={styles.cardLabel}>MITRE ATT&amp;CK SCOPE</div>
               <div className={styles.cardDesc} style={{ color: '#888888', marginTop: '8px', lineHeight: '1.5' }}>
-                Enterprise matrix mapping real-world adversary tactics and techniques against active edge defenses.
+                Enterprise matrix mapping 25 adversary techniques across 10 tactics against live Contract v2 edge probe telemetry.
               </div>
             </div>
             <div className={styles.card}>
-              <div className={styles.cardLabel}>TACTICAL PHASES</div>
+              <div className={styles.cardLabel}>LIVE EDGE SIGNALS <span style={{ fontSize: '9px', color: '#6a6a6a', fontWeight: 'normal' }}>[24H]</span></div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '10px', fontSize: '11px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span style={{ color: '#888888' }}>INITIAL ACCESS</span>
-                  <span style={{ color: '#00ff66', fontWeight: 'bold' }}>4 COVERED</span>
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span style={{ color: '#888888' }}>EXECUTION</span>
-                  <span style={{ color: '#00ff66', fontWeight: 'bold' }}>3 COVERED</span>
+                  <span style={{ color: '#888888' }}>RECON / SCAN</span>
+                  <span style={{ color: '#00ff66', fontWeight: 'bold' }}>
+                    {probes?.families
+                      ? `${probes.families.filter(f => f.family === 'hex32_probe' || f.family === 'phpinfo').reduce((a, f) => a + f.count, 0)} HITS`
+                      : '3 BASELINE'}
+                  </span>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                   <span style={{ color: '#888888' }}>CREDENTIAL ACCESS</span>
-                  <span style={{ color: '#00ff66', fontWeight: 'bold' }}>4 COVERED</span>
+                  <span style={{ color: '#c00030', fontWeight: 'bold' }}>
+                    {probes?.families
+                      ? `${probes.families.filter(f => f.family === 'env_file' || f.family === 'git' || f.family === 'aws_creds').reduce((a, f) => a + f.count, 0)} HITS`
+                      : '4 COVERED'}
+                  </span>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span style={{ color: '#888888' }}>DISCOVERY</span>
-                  <span style={{ color: '#00ff66', fontWeight: 'bold' }}>3 COVERED</span>
+                  <span style={{ color: '#888888' }}>INITIAL ACCESS</span>
+                  <span style={{ color: '#ff8c00', fontWeight: 'bold' }}>
+                    {probes?.families
+                      ? `${probes.families.filter(f => f.family === 'wordpress' || f.family === 'api_probe' || f.family === 'db_probe').reduce((a, f) => a + f.count, 0)} HITS`
+                      : '3 COVERED'}
+                  </span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span style={{ color: '#888888' }}>BRUTE FORCE (AUTH)</span>
+                  <span style={{ color: (auth?.totals?.login_fail ?? 0) + (auth?.totals?.forbidden ?? 0) > 0 ? '#ff8c00' : '#00ff66', fontWeight: 'bold' }}>
+                    {auth?.totals ? `${(auth.totals.login_fail || 0) + (auth.totals.forbidden || 0)} EVENTS` : '0 EVENTS'}
+                  </span>
                 </div>
               </div>
             </div>
@@ -843,7 +857,7 @@ export default function OperationalCockpit({ defaultLens = null }) {
             <div className={styles.card}>
               <div className={styles.cardLabel}>DEFENSE ASSURANCE</div>
               <div className={styles.cardDesc} style={{ color: '#888888', marginTop: '8px', lineHeight: '1.5' }}>
-                Continuous automated audit of Zero Trust enforcement, WAF isolation, cryptographic signing, and supply chain security.
+                Continuous audit of Zero Trust enforcement, WAF isolation, masking canon, supply chain security, and live 5xx health.
               </div>
             </div>
             <div className={styles.card}>
@@ -851,11 +865,19 @@ export default function OperationalCockpit({ defaultLens = null }) {
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '10px', fontSize: '11px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                   <span style={{ color: '#888888' }}>CONTROLS EVALUATED</span>
-                  <span style={{ color: '#ffffff', fontWeight: 'bold' }}>6 CONTROLS</span>
+                  <span style={{ color: '#ffffff', fontWeight: 'bold' }}>7 CONTROLS</span>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span style={{ color: '#888888' }}>COMPLIANCE STATUS</span>
-                  <span style={{ color: '#00ff66', fontWeight: 'bold' }}>100% VERIFIED</span>
+                  <span style={{ color: '#888888' }}>RUNTIME TELEMETRY</span>
+                  <span style={{ color: !isLive || meta?.stale || (errors_5xx?.app_5xx ?? 0) > 0 ? '#ff8c00' : '#00ff66', fontWeight: 'bold' }}>
+                    {!isLive ? 'FALLBACK' : (errors_5xx?.app_5xx ?? 0) > 0 ? 'APP 5XX WARN' : meta?.stale ? 'STALE' : 'FRESH // GREEN'}
+                  </span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span style={{ color: '#888888' }}>APP 5XX ISOLATION</span>
+                  <span style={{ color: (errors_5xx?.app_5xx ?? 0) > 0 ? '#c00030' : '#00ff66', fontWeight: 'bold' }}>
+                    {errors_5xx ? `${errors_5xx.app_5xx} APP / ${errors_5xx.platform_5xx} PLAT` : 'N/A'}
+                  </span>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                   <span style={{ color: '#888888' }}>ZERO-COST CONSTRAINT</span>
@@ -987,8 +1009,8 @@ export default function OperationalCockpit({ defaultLens = null }) {
                 <span className="status">
                   {activeLens === null && `4 LENSES ONLINE${meta?.stale ? ' // STALE' : ''}`}
                   {activeLens === 'globe' && `${traffic ? traffic.site_requests : security_metrics.worker_requests_24h} ${traffic ? 'SITE' : 'REQUESTS'} / ${security_metrics.blocked_403} BLOCKED${errors_5xx ? ` / ${errors_5xx.app_5xx} APP 5XX` : ''}`}
-                  {activeLens === 'attack-matrix' && '14 TECHNIQUES / 4 TACTICS'}
-                  {activeLens === 'assurance' && '6 CONTROLS VERIFIED'}
+                  {activeLens === 'attack-matrix' && `25 TECHNIQUES / 10 TACTICS${probes?.families ? ` / ${probes.families.length} ACTIVE FAMILIES` : ''}`}
+                  {activeLens === 'assurance' && `7 CONTROLS // ${!isLive ? 'FALLBACK' : (errors_5xx?.app_5xx ?? 0) > 0 ? 'APP 5XX ALERT' : meta?.stale ? 'STALE' : 'ALL GATES GREEN'}`}
                 </span>
               </div>
             </header>
@@ -1068,8 +1090,8 @@ export default function OperationalCockpit({ defaultLens = null }) {
             {activeLens === 'attack-matrix' && (
               <BrowserOnly fallback={<div style={{ background: '#000', height: '100%' }} />}>
                 {() => (
-                  <Suspense fallback={<div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%', color: '#00ff66', fontFamily: 'JetBrains Mono, monospace' }}>INITIALIZING ATT&CK MATRIX...</div>}>
-                    <AttackMatrix />
+                  <Suspense fallback={<div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%', color: '#00ff66', fontFamily: 'JetBrains Mono, monospace' }}>INITIALIZING ATT&amp;CK MATRIX...</div>}>
+                    <AttackMatrix snapshot={data} />
                   </Suspense>
                 )}
               </BrowserOnly>
@@ -1080,7 +1102,7 @@ export default function OperationalCockpit({ defaultLens = null }) {
               <BrowserOnly fallback={<div style={{ background: '#000', height: '100%' }} />}>
                 {() => (
                   <Suspense fallback={<div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%', color: '#0055ff', fontFamily: 'JetBrains Mono, monospace' }}>INITIALIZING ASSURANCE...</div>}>
-                    <AssuranceView />
+                    <AssuranceView snapshot={data} isLive={isLive} />
                   </Suspense>
                 )}
               </BrowserOnly>
@@ -1337,12 +1359,22 @@ export default function OperationalCockpit({ defaultLens = null }) {
         {activeLens === 'attack-matrix' && (
           <div>
             <div className={styles.threatsHeader}>COVERAGE METRICS</div>
-            <div style={{ padding: '14px', border: '1px solid #1a1a1a', background: '#0a0a0a', fontSize: '11px', color: '#6a6a6a', fontFamily: 'JetBrains Mono, monospace', lineHeight: '1.6' }}>
-              <div style={{ color: '#00ff66', fontWeight: 'bold', marginBottom: '8px' }}>MITRE ATT&CK TELEMETRY</div>
-              <div>Active defensive mapping against enterprise adversary tactics.</div>
-              <div style={{ marginTop: '12px', borderTop: '1px solid #1a1a1a', paddingTop: '8px' }}>
-                <span style={{ color: '#888888' }}>DETECTION ENGINE: </span>
-                <span style={{ color: '#ffffff' }}>PASSIVE WAF RULES</span>
+            <div style={{ padding: '14px', border: '1px solid #1a1a1a', background: '#0a0a0a', fontSize: '11px', color: '#6a6a6a', fontFamily: 'JetBrains Mono, monospace', lineHeight: '1.6', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <div style={{ color: '#00ff66', fontWeight: 'bold' }}>MITRE ATT&amp;CK TELEMETRY</div>
+              <div>Active defensive mapping against enterprise adversary tactics using Contract v2 edge classifiers.</div>
+              <div style={{ borderTop: '1px solid #1a1a1a', paddingTop: '8px', display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '10px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span style={{ color: '#888888' }}>DETECTION ENGINE</span>
+                  <span style={{ color: '#ffffff' }}>EDGE WAF + V2 PROBES</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span style={{ color: '#888888' }}>ACTIVE FAMILIES (24H)</span>
+                  <span style={{ color: '#ff8c00', fontWeight: 'bold' }}>{probes?.families ? probes.families.length : 0}</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span style={{ color: '#888888' }}>BLOCKED OUTCOMES</span>
+                  <span style={{ color: '#c00030', fontWeight: 'bold' }}>{probes?.by_outcome ? probes.by_outcome.blocked : security_metrics.blocked_403}</span>
+                </div>
               </div>
             </div>
           </div>
@@ -1352,12 +1384,28 @@ export default function OperationalCockpit({ defaultLens = null }) {
         {activeLens === 'assurance' && (
           <div>
             <div className={styles.threatsHeader}>ASSURANCE LOG</div>
-            <div style={{ padding: '14px', border: '1px solid #1a1a1a', background: '#0a0a0a', fontSize: '11px', color: '#6a6a6a', fontFamily: 'JetBrains Mono, monospace', lineHeight: '1.6' }}>
-              <div style={{ color: '#0055ff', fontWeight: 'bold', marginBottom: '8px' }}>CONTINUOUS AUDIT LOG</div>
-              <div>6 of 6 security posture controls passing automated integrity checks.</div>
-              <div style={{ marginTop: '12px', borderTop: '1px solid #1a1a1a', paddingTop: '8px' }}>
-                <span style={{ color: '#888888' }}>LAST AUDIT: </span>
-                <span style={{ color: '#00ff66' }}>PASSED GREEN</span>
+            <div style={{ padding: '14px', border: '1px solid #1a1a1a', background: '#0a0a0a', fontSize: '11px', color: '#6a6a6a', fontFamily: 'JetBrains Mono, monospace', lineHeight: '1.6', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <div style={{ color: '#0055ff', fontWeight: 'bold' }}>CONTINUOUS AUDIT LOG</div>
+              <div>7 security posture &amp; telemetry integrity controls bound to live Contract v2 signals.</div>
+              <div style={{ borderTop: '1px solid #1a1a1a', paddingTop: '8px', display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '10px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span style={{ color: '#888888' }}>SNAPSHOT STATE</span>
+                  <span style={{ color: !isLive || meta?.stale ? '#ff8c00' : '#00ff66', fontWeight: 'bold' }}>
+                    {!isLive ? 'FALLBACK' : meta?.stale ? 'STALE' : 'FRESH // V2'}
+                  </span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span style={{ color: '#888888' }}>APP 5XX COUNT</span>
+                  <span style={{ color: (errors_5xx?.app_5xx ?? 0) > 0 ? '#c00030' : '#00ff66', fontWeight: 'bold' }}>
+                    {errors_5xx ? errors_5xx.app_5xx : 'N/A'}
+                  </span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span style={{ color: '#888888' }}>QUOTA WARNING</span>
+                  <span style={{ color: meta?.quota_warning ? '#ff8c00' : '#00ff66', fontWeight: 'bold' }}>
+                    {meta?.quota_warning ? 'YES' : 'NONE'}
+                  </span>
+                </div>
               </div>
             </div>
           </div>
