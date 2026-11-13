@@ -592,7 +592,14 @@ export default function NeuralGraph({ onReady, embedded = false, onBackToLenses 
     >
       <header className="hud">
         <span className="brand">
-          <span className="brand-prefix">BUGTERIUM</span>
+          <span 
+            className="brand-prefix"
+            onClick={onBackToLenses}
+            style={{ cursor: onBackToLenses ? 'pointer' : 'default' }}
+            title="Return to Lenses Hub"
+          >
+            BUGTERIUM
+          </span>
           <span className="sep">/</span> 
           {onBackToLenses ? (
             <button
