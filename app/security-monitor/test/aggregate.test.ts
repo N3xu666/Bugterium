@@ -1,6 +1,23 @@
 import { describe, it, expect, beforeAll } from 'vitest';
-import { aggregate, aggregateTraffic, aggregateProbes, classifyProbeFamily, sanitizeProbePath } from '../src/lib/aggregate';
-import type { GraphQLAccountData, MonitorResponse, AggregateTrafficConfig, ProbesBreakdown } from '../src/lib/types';
+import {
+  aggregate,
+  aggregateTraffic,
+  aggregateProbes,
+  classifyProbeFamily,
+  sanitizeProbePath,
+  classifyUaFamily,
+  aggregateUaFamilies,
+  aggregateErrors5xx,
+  aggregateAuth,
+  computeBaseline,
+} from '../src/lib/aggregate';
+import type {
+  GraphQLAccountData,
+  MonitorResponse,
+  AggregateTrafficConfig,
+  ProbesBreakdown,
+  BaselineBreakdown,
+} from '../src/lib/types';
 import fixture from './fixtures/graphql-response.json';
 
 // Fixed `now` so timeline is deterministic. Aligns with the fixture's latest bucket (16:00Z).
@@ -320,5 +337,129 @@ describe('sanitizeProbePath() — M-05/M-06 privacy sanitization', () => {
     expect(sanitizeProbePath('/')).toBe('/');
     expect(sanitizeProbePath('/monitor')).toBe('/monitor');
     expect(sanitizeProbePath('/wp-login.php')).toBe('/wp-login.php');
+  });
+
+  it('masks 32-hex paths inside aggregate().path_data.benign and correlations', () => {
+    const hexPathA = '/' + 'a'.repeat(32);
+    const hexPathB = '/' + 'f'.repeat(32);
+    const account: GraphQLAccountData = {
+      ...getAccount(),
+      byPath: [
+        { count: 12, dimensions: { clientRequestPath: hexPathA } },
+        { count: 8, dimensions: { clientRequestPath: hexPathB } },
+        { count: 100, dimensions: { clientRequestPath: '/' } },
+      ],
+      byPathCountry: [
+        { count: 12, dimensions: { clientRequestPath: hexPathA, clientCountryName: 'US' } },
+        { count: 8, dimensions: { clientRequestPath: hexPathB, clientCountryName: 'US' } },
+      ],
+    };
+    const res = aggregate(account, NOW);
+    expect(res.path_data.benign).toEqual([
+      { path: '/[hex32]', count: 20 },
+      { path: '/', count: 100 },
+    ]);
+    expect(res.path_data.correlations['/[hex32]']).toEqual({ US: 20 });
+    expect(res.path_data.correlations[hexPathA]).toBeUndefined();
+  });
+});
+
+describe('UA classifier, traffic estimates, errors_5xx, auth, baseline (Contract v2)', () => {
+  it('classifies UA families accurately', () => {
+    expect(classifyUaFamily('Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120.0')).toBe('browser');
+    expect(classifyUaFamily('curl/8.0')).toBe('automation');
+    expect(classifyUaFamily('Mozilla/5.0 (compatible; Googlebot/2.1)')).toBe('crawler');
+    expect(classifyUaFamily('sqlmap/1.7')).toBe('scanner');
+    expect(classifyUaFamily(null)).toBe('unknown');
+  });
+
+  it('aggregateUaFamilies groups fixture user agents', () => {
+    const families = aggregateUaFamilies(getAccount());
+    expect(families).toEqual([
+      { family: 'browser', count: 707 },
+      { family: 'automation', count: 203 },
+      { family: 'crawler', count: 100 },
+      { family: 'unknown', count: 5 },
+      { family: 'scanner', count: 2 },
+    ]);
+  });
+
+  it('aggregateTraffic populates human_est, bot_est, scanner_est', () => {
+    const t = aggregateTraffic(getAccount(), {});
+    expect(t.human_est).toBe(707);
+    expect(t.bot_est).toBe(303);
+    expect(t.scanner_est).toBe(2);
+  });
+
+  it('aggregateErrors5xx separates platform (504) vs app (500) errors', () => {
+    const errs = aggregateErrors5xx(getAccount());
+    expect(errs.total).toBe(5);
+    expect(errs.platform_5xx).toBe(2);
+    expect(errs.app_5xx).toBe(3);
+    expect(errs.by_code).toEqual([
+      { code: 500, count: 3, classification: 'app' },
+      { code: 504, count: 2, classification: 'platform' },
+    ]);
+    expect(errs.by_cache).toEqual([
+      { status: 'MISS', count: 2 },
+      { status: 'DYNAMIC', count: 3 },
+    ]);
+    expect(errs.by_origin_status).toEqual([
+      { code: 0, count: 2 },
+      { code: 500, count: 3 },
+    ]);
+  });
+
+  it('aggregateAuth distributes D1 auth_events into 24h buckets and totals', () => {
+    const h16 = Math.floor(new Date('2026-11-10T16:00:00Z').getTime() / 1000);
+    const h14 = Math.floor(new Date('2026-11-10T14:00:00Z').getTime() / 1000);
+    const auth = aggregateAuth(
+      [
+        { hour_epoch: h16, event: 'login_success', count: 4 },
+        { hour_epoch: h16, event: 'forbidden', count: 2 },
+        { hour_epoch: h14, event: 'login_fail', count: 1 },
+        { hour_epoch: h14, event: 'logout', count: 3 },
+      ],
+      NOW,
+    );
+    expect(auth.by_hour).toHaveLength(24);
+    expect(auth.totals).toEqual({ login_success: 4, login_fail: 1, forbidden: 2, logout: 3 });
+    expect(auth.by_hour[23]).toEqual({
+      hour: '2026-11-10T16:00:00.000Z',
+      login_success: 4,
+      login_fail: 0,
+      forbidden: 2,
+      logout: 0,
+    });
+    expect(auth.by_hour[21]).toEqual({
+      hour: '2026-11-10T14:00:00.000Z',
+      login_success: 0,
+      login_fail: 1,
+      forbidden: 0,
+      logout: 3,
+    });
+  });
+
+  it('computeBaseline merges previous 24h history and computes spike ratio', () => {
+    const prev: BaselineBreakdown = {
+      current_24h: 150,
+      previous_24h: 0,
+      ratio: 1.0,
+      level: 'normal',
+      hourly_history: [
+        { hour: '2026-11-09T10:00:00.000Z', count: 150 },
+      ],
+    };
+    const b = computeBaseline(getAccount(), NOW, prev);
+    expect(b.current_24h).toBe(450); // 100 + 200 + 150 from fixture
+    expect(b.previous_24h).toBe(150);
+    expect(b.ratio).toBe(3.0);
+    expect(b.level).toBe('critical');
+    expect(b.hourly_history).toHaveLength(4);
+
+    // Re-running with the resulting baseline must NOT double-count current 24h buckets
+    const b2 = computeBaseline(getAccount(), NOW, b);
+    expect(b2.current_24h).toBe(450);
+    expect(b2.previous_24h).toBe(150);
   });
 });

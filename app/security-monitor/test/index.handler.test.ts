@@ -104,6 +104,7 @@ function mockGraphQLErrors(): ReturnType<typeof vi.fn> {
 
 describe('Security Monitor — fetch handler (Phase 1: KV snapshot)', () => {
   afterEach(() => {
+    vi.useRealTimers();
     vi.unstubAllGlobals();
     vi.restoreAllMocks();
   });
@@ -213,6 +214,7 @@ describe('Security Monitor — scheduled (cron collector)', () => {
   const CTRL = {} as ScheduledController;
 
   afterEach(() => {
+    vi.useRealTimers();
     vi.unstubAllGlobals();
     vi.restoreAllMocks();
   });
@@ -283,5 +285,46 @@ describe('Security Monitor — scheduled (cron collector)', () => {
     await expect(worker.scheduled(CTRL, makeEnv(kv))).resolves.toBeUndefined();
     expect(kv.put).not.toHaveBeenCalled();
     expect(kv._store.size).toBe(0);
+  });
+
+  it('scheduled() with DB binding queries auth_events and populates Contract v2 fields', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-11-10T16:30:00Z'));
+    mockGraphQLSuccess();
+    const kv = makeKV();
+    const nowEpoch = Math.floor(Date.now() / 1000);
+    const mockDb = {
+      prepare: vi.fn(() => ({
+        bind: vi.fn(() => ({
+          all: vi.fn(async () => ({
+            results: [{ hour_epoch: nowEpoch, event: 'login_success', count: 5 }],
+          })),
+        })),
+      })),
+    } as unknown as D1Database;
+
+    await worker.scheduled(CTRL, { ...makeEnv(kv), DB: mockDb });
+    expect(kv.put).toHaveBeenCalledTimes(1);
+    const snap = JSON.parse(kv._store.get('snapshot:latest')!) as SnapshotResponse;
+    expect(snap.auth?.totals.login_success).toBe(5);
+    expect(snap.errors_5xx?.total).toBe(5);
+    expect(snap.ua_families).toHaveLength(5);
+    expect(snap.baseline?.current_24h).toBe(450);
+  });
+
+  it('scheduled() survives D1 query failure and still writes valid snapshot', async () => {
+    mockGraphQLSuccess();
+    const kv = makeKV();
+    const mockDb = {
+      prepare: vi.fn(() => {
+        throw new Error('d1 offline');
+      }),
+    } as unknown as D1Database;
+
+    await worker.scheduled(CTRL, { ...makeEnv(kv), DB: mockDb });
+    expect(kv.put).toHaveBeenCalledTimes(1);
+    const snap = JSON.parse(kv._store.get('snapshot:latest')!) as SnapshotResponse;
+    expect(snap.meta.stale).toBe(false);
+    expect(snap.auth?.totals.login_success).toBe(0);
   });
 });

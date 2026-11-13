@@ -38,6 +38,15 @@ jobs:
         run: npx tsc --noEmit
       - name: Run tests
         run: npx vitest run
+      - name: Install security-monitor dependencies
+        working-directory: ./app/security-monitor
+        run: npm ci
+      - name: Security Monitor TypeScript check
+        working-directory: ./app/security-monitor
+        run: npx tsc --noEmit
+      - name: Run Security Monitor tests
+        working-directory: ./app/security-monitor
+        run: npx vitest run --max-workers=1 --no-isolate
 
   build-frontend:
     name: Frontend Build
@@ -96,28 +105,66 @@ jobs:
           severity: HIGH,CRITICAL
           exit-code: '1'
           ignore-unfixed: true
-          skip-dirs: 'app/bff/node_modules,app/frontend/node_modules'
+          skip-dirs: 'app/bff/node_modules,app/frontend/node_modules,app/security-monitor/node_modules'
       - name: npm audit (bff)
         working-directory: app/bff
         run: npm audit --omit=dev --audit-level=high
       - name: npm audit (frontend)
         working-directory: app/frontend
         run: npm audit --omit=dev --audit-level=high
+      - name: npm audit (security-monitor)
+        working-directory: app/security-monitor
+        run: npm audit --omit=dev --audit-level=high
 
   dast:
-    name: DAST (ZAP baseline, advisory)
-    if: false  # TODO: enable after Phase A4 (app.bugterium.pages.dev live)
+    name: DAST (ZAP baseline)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
           persist-credentials: false
+      - name: Setup Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '24'
+          cache: 'npm'
+          cache-dependency-path: |
+            app/bff/package-lock.json
+            app/frontend/package-lock.json
+      - name: Build frontend assets for BFF
+        working-directory: ./app/frontend
+        run: npm ci && npm run build
+      - name: Install BFF dependencies
+        working-directory: ./app/bff
+        run: npm ci
+      - name: Prepare local D1 and start wrangler dev
+        working-directory: ./app/bff
+        run: |
+          set -euo pipefail
+          cat <<'EOF' > .dev.vars
+          GITHUB_CLIENT_ID=00000000000000000000
+          GITHUB_CLIENT_SECRET=00000000000000000000000000000000
+          JWT_SIGNING_KEY=00000000000000000000000000000000
+          IP_PEPPER=00000000000000000000000000000000
+          EOF
+          npx wrangler d1 execute bugterium-db --local --command "CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY AUTOINCREMENT, github_id INTEGER UNIQUE NOT NULL, username TEXT NOT NULL, role TEXT NOT NULL, created_at INTEGER NOT NULL); CREATE TABLE IF NOT EXISTS sessions (id TEXT PRIMARY KEY, user_id INTEGER NOT NULL, expires_at INTEGER NOT NULL, created_at INTEGER NOT NULL, ip_hash TEXT); CREATE TABLE IF NOT EXISTS oauth_states (state TEXT PRIMARY KEY, expires_at INTEGER NOT NULL); CREATE TABLE IF NOT EXISTS rate_limits (key TEXT PRIMARY KEY, window_start INTEGER NOT NULL, count INTEGER NOT NULL); CREATE TABLE IF NOT EXISTS auth_events (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, event TEXT NOT NULL, ip_hash TEXT, created_at INTEGER NOT NULL);"
+          nohup npx wrangler dev --local --ip 172.17.0.1 --port 8787 > /tmp/wrangler.log 2>&1 &
+          for i in $(seq 1 30); do
+            if curl -fsS http://172.17.0.1:8787/api/health > /dev/null; then
+              echo "wrangler dev ready"
+              exit 0
+            fi
+            sleep 1
+          done
+          cat /tmp/wrangler.log
+          exit 1
       - name: ZAP Baseline Scan
         uses: zaproxy/action-baseline@15c68dd2097803f36bcaf23ef2582c84bccdb72d  # v0.14.0
         with:
-          target: 'https://app.bugterium.pages.dev'
-          cmd_options: '-a'
-          fail_action: false
+          target: 'http://172.17.0.1:8787'
+          cmd_options: '-a -I'
+          fail_action: true
+          allow_issue_writing: false
 
   dependency-review:
     name: Dependency Review
