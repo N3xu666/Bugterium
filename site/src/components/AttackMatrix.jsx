@@ -151,9 +151,9 @@ export default function AttackMatrix() {
           <button
             onClick={() => setFilter('researched')}
             style={{
-              background: filter === 'researched' ? '#003311' : 'transparent',
-              color: filter === 'researched' ? '#00ff66' : '#666',
-              border: '1px solid #00aa44',
+              background: filter === 'researched' ? 'rgba(0, 255, 102, 0.12)' : 'transparent',
+              color: filter === 'researched' ? '#00ff66' : '#6a6a6a',
+              border: '1px solid #00ff66',
               padding: '3px 8px',
               cursor: 'pointer',
               fontFamily: 'inherit'
@@ -164,8 +164,8 @@ export default function AttackMatrix() {
           <button
             onClick={() => setFilter('probed')}
             style={{
-              background: filter === 'probed' ? '#330011' : 'transparent',
-              color: filter === 'probed' ? '#ff0055' : '#666',
+              background: filter === 'probed' ? 'rgba(192, 0, 48, 0.12)' : 'transparent',
+              color: filter === 'probed' ? '#c00030' : '#6a6a6a',
               border: '1px solid #c00030',
               padding: '3px 8px',
               cursor: 'pointer',
