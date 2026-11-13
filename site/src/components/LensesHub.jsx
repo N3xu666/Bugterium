@@ -1,6 +1,46 @@
 import React from 'react';
 
-export default function LensesHub({ onSelectLens, metrics }) {
+export default function LensesHub({ onSelectLens, metrics, snapshot }) {
+  const siteReq = snapshot?.traffic?.site_requests;
+  const app5xx = snapshot?.errors_5xx?.app_5xx;
+  const probeFamiliesCount = snapshot?.probes?.families?.length;
+  const probeBlocked = snapshot?.probes?.by_outcome?.blocked;
+  const isStale = Boolean(snapshot?.meta?.stale);
+
+  const badgeByLens = {
+    'neural-port': {
+      text: 'CVE FEED // GRAPH',
+      color: '#6a6a6a'
+    },
+    'globe': typeof siteReq === 'number'
+      ? {
+          text: `${siteReq} SITE · ${app5xx ?? 0} APP 5XX`,
+          color: (app5xx ?? 0) > 0 ? '#c00030' : '#00ff66'
+        }
+      : {
+          text: metrics ? `${metrics.worker_requests_24h} REQ · ${metrics.blocked_403} BLK` : 'EDGE // LIVE',
+          color: '#ff8c00'
+        },
+    'attack-matrix': typeof probeFamiliesCount === 'number'
+      ? {
+          text: `${probeFamiliesCount} FAMILIES · ${probeBlocked ?? 0} BLK`,
+          color: (probeBlocked ?? 0) > 0 ? '#ff8c00' : '#00ff66'
+        }
+      : {
+          text: 'MITRE // ENTERPRISE',
+          color: '#6a6a6a'
+        },
+    'assurance': snapshot?.meta || snapshot?.errors_5xx
+      ? {
+          text: `${isStale ? 'STALE' : 'FRESH'} · ${app5xx ?? 0} APP 5XX`,
+          color: isStale || (app5xx ?? 0) > 0 ? '#ff8c00' : '#00ff66'
+        }
+      : {
+          text: '6 CONTROLS // PASS',
+          color: '#00ff66'
+        }
+  };
+
   const lenses = [
     {
       id: 'neural-port',
@@ -176,10 +216,15 @@ export default function LensesHub({ onSelectLens, metrics }) {
         >
           {/* Top header */}
           <div>
-            <div style={{ marginBottom: '22px' }}>
+            <div style={{ marginBottom: '22px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px' }}>
               <span style={{ fontSize: '9px', color: '#6a6a6a', letterSpacing: '0.12em', fontWeight: 'bold' }}>
                 {lens.tag}
               </span>
+              {badgeByLens[lens.id] && (
+                <span style={{ fontSize: '9px', color: badgeByLens[lens.id].color, letterSpacing: '0.06em', fontWeight: 'bold', whiteSpace: 'nowrap' }}>
+                  {badgeByLens[lens.id].text}
+                </span>
+              )}
             </div>
             
             <h3 style={{ 
