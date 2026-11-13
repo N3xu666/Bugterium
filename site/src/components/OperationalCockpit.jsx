@@ -92,7 +92,96 @@ const FALLBACK_DATA = {
       { ua: 'sqlmap/1.7', count: 10 },
       { ua: 'nikto/2.1', count: 8 }
     ]
-  }
+  },
+  schema_version: '2.0',
+  meta: {
+    generated_at: new Date().toISOString(),
+    window_start: new Date(Date.now() - 86400000).toISOString(),
+    window_end: new Date().toISOString(),
+    stale: true,
+    sampled: false,
+    quota_warning: false
+  },
+  traffic: {
+    site_requests: 1850,
+    own_polling: 120,
+    bff_requests: 14,
+    other_http: 90,
+    cron_invocations: 0,
+    total_workers: 476,
+    hosts: [{ host: 'bugterium.pages.dev', count: 1850 }],
+    human_est: 1100,
+    bot_est: 45,
+    scanner_est: 18
+  },
+  probes: {
+    total: 34,
+    by_outcome: { reached: 12, not_found: 14, blocked: 8, error: 0 },
+    top_paths: [],
+    families: [
+      { family: 'env_file', count: 12 },
+      { family: 'wordpress', count: 14 },
+      { family: 'api_probe', count: 5 },
+      { family: 'db_probe', count: 3 }
+    ]
+  },
+  errors_5xx: {
+    total: 260,
+    platform_5xx: 260,
+    app_5xx: 0,
+    by_code: [{ code: 504, count: 260, classification: 'platform' }],
+    by_cache: [{ status: 'MISS', count: 260 }],
+    by_origin_status: [{ code: 0, count: 260 }]
+  },
+  auth: {
+    totals: { login_success: 0, login_fail: 0, forbidden: 0, logout: 0 },
+    by_hour: []
+  },
+  baseline: {
+    current_24h: 2074,
+    previous_24h: 1980,
+    ratio: 1.05,
+    level: 'normal',
+    hourly_history: []
+  },
+  ua_families: [
+    { family: 'browser', count: 1100 },
+    { family: 'automation', count: 45 },
+    { family: 'scanner', count: 18 }
+  ]
+};
+
+const BASELINE_LEVEL_COLORS = {
+  normal: '#00ff66',
+  elevated: '#ff8c00',
+  spike: '#ff8800',
+  critical: '#c00030'
+};
+
+const PROBE_FAMILY_META = {
+  hex32_probe: { label: 'HEX32 PROBE', color: '#a855f7' },
+  env_file: { label: 'ENV FILE LEAKS', color: '#c00030' },
+  git: { label: 'GIT EXPOSURE', color: '#c00030' },
+  phpinfo: { label: 'PHPINFO PROBE', color: '#ff8c00' },
+  aws_creds: { label: 'AWS CREDENTIALS', color: '#c00030' },
+  shell: { label: 'WEBSHELL PROBE', color: '#c00030' },
+  wordpress: { label: 'CMS & WORDPRESS', color: '#ff8c00' },
+  api_probe: { label: 'API EXPOSURE', color: '#a855f7' },
+  db_probe: { label: 'DATABASE PROBES', color: '#a855f7' }
+};
+
+const getProbeFamilyMeta = (family) => {
+  if (!family) return { label: 'OTHER', color: '#6a6a6a' };
+  if (PROBE_FAMILY_META[family]) return PROBE_FAMILY_META[family];
+  return { label: String(family).replace(/_/g, ' ').toUpperCase(), color: '#a855f7' };
+};
+
+const UA_FAMILY_COLORS = {
+  browser: '#00ff66',
+  crawler: '#6a6a6a',
+  automation: '#ff8c00',
+  scanner: '#c00030',
+  unknown: '#888888'
 };
 
 const getPathFamily = (path) => {
@@ -370,7 +459,29 @@ export default function OperationalCockpit({ defaultLens = null }) {
     return () => clearInterval(interval);
   }, [telemetrySync]);
 
-  const { security_metrics, geo_data, attacks_by_country, timeline, path_data, user_agent_data, status_breakdown } = data;
+  const {
+    security_metrics,
+    geo_data,
+    attacks_by_country,
+    timeline,
+    path_data,
+    user_agent_data,
+    status_breakdown,
+    meta,
+    traffic,
+    probes,
+    errors_5xx,
+    auth,
+    baseline,
+    ua_families
+  } = data || FALLBACK_DATA;
+
+  const error5xxByCode = {};
+  if (errors_5xx && Array.isArray(errors_5xx.by_code)) {
+    errors_5xx.by_code.forEach((entry) => {
+      error5xxByCode[entry.code] = entry.classification;
+    });
+  }
 
   const renderBreakdown = (prefix, color) => {
     if (!status_breakdown) return null;
@@ -378,7 +489,8 @@ export default function OperationalCockpit({ defaultLens = null }) {
     if (filtered.length === 0) return <div style={{ fontSize: '10px', color: '#6a6a6a', marginTop: '5px' }}>No errors</div>;
     const get5xxOriginTag = (code) => {
       if (prefix !== 5) return null;
-      const isPlatform = code === 502 || code === 503 || code === 504;
+      const classification = error5xxByCode[code];
+      const isPlatform = classification ? classification === 'platform' : (code === 502 || code === 503 || code === 504);
       return {
         tag: isPlatform ? '[PLAT]' : '[APP]',
         title: isPlatform
@@ -391,7 +503,7 @@ export default function OperationalCockpit({ defaultLens = null }) {
         {filtered.map(s => {
           const originTag = s.count > 0 ? get5xxOriginTag(s.code) : null;
           return (
-            <div key={s.code} title={originTag ? originTag.title : undefined} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '11px', color: color, borderBottom: '1px solid #222', paddingBottom: '2px', paddingLeft: '4px', paddingRight: '4px' }}>
+            <div key={s.code} title={originTag ? originTag.title : undefined} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '11px', color: color, borderBottom: '1px solid #1a1a1a', paddingBottom: '2px', paddingLeft: '4px', paddingRight: '4px' }}>
               <span>
                 {s.code}
                 {originTag && (
@@ -517,46 +629,157 @@ export default function OperationalCockpit({ defaultLens = null }) {
         {activeLens === 'globe' && (
           <>
             <div className={styles.card}>
-              <div className={styles.cardLabel} style={{ fontSize: "16px" }}>REQUESTS (24H) <span style={{ fontSize: '10px', color: '#666', fontWeight: 'normal', marginLeft: '4px' }}>[WORKERS]</span></div>
-              <div className={styles.cardDesc} style={{ fontSize: "28px", color: "#ff8c00", marginTop: "10px", fontWeight: "bold" }}>{security_metrics.worker_requests_24h}</div>
+              <div className={styles.cardLabel} style={{ fontSize: '14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span>REQUESTS (24H) <span style={{ fontSize: '10px', color: '#6a6a6a', fontWeight: 'normal', marginLeft: '4px' }}>{traffic ? '[SITE]' : '[WORKERS]'}</span></span>
+                {baseline && (
+                  <span style={{ fontSize: '9px', color: BASELINE_LEVEL_COLORS[baseline.level] || '#888888', border: '1px solid #1a1a1a', padding: '1px 5px' }}>
+                    {String(baseline.level || 'N/A').toUpperCase()} {typeof baseline.ratio === 'number' ? `${baseline.ratio}x` : ''}
+                  </span>
+                )}
+              </div>
+              <div className={styles.cardDesc} style={{ fontSize: '28px', color: '#ff8c00', marginTop: '8px', fontWeight: 'bold' }}>
+                {traffic ? traffic.site_requests : security_metrics.worker_requests_24h}
+              </div>
+              {(traffic || baseline) && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginTop: '10px', borderTop: '1px solid #1a1a1a', paddingTop: '8px', fontSize: '10px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span style={{ color: '#6a6a6a' }}>WORKERS / POLL / BFF</span>
+                    <span style={{ color: '#d7d7d7' }}>
+                      {security_metrics.worker_requests_24h} / {traffic ? traffic.own_polling : 'N/A'} / {traffic ? traffic.bff_requests : 'N/A'}
+                    </span>
+                  </div>
+                  {baseline && (
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <span style={{ color: '#6a6a6a' }}>PREVIOUS 24H BASELINE</span>
+                      <span style={{ color: '#888888' }}>{baseline.previous_24h}</span>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
+
             <div className={styles.card}>
-              <div className={styles.cardLabel}>CLIENT ERRORS <span style={{ fontSize: '10px', color: '#666', fontWeight: 'normal', marginLeft: '4px' }}>[HTTP]</span></div>
-              <div className={styles.cardDesc} style={{ fontSize: '28px', color: security_metrics.client_errors_4xx > 0 ? '#ff8c00' : '#fff', marginTop: '10px', fontWeight: 'bold', borderBottom: '1px solid #222', paddingBottom: '10px', paddingLeft: '4px' }}>{security_metrics.client_errors_4xx || 0}</div>
+              <div className={styles.cardLabel}>CLIENT ERRORS <span style={{ fontSize: '10px', color: '#6a6a6a', fontWeight: 'normal', marginLeft: '4px' }}>[HTTP]</span></div>
+              <div className={styles.cardDesc} style={{ fontSize: '28px', color: security_metrics.client_errors_4xx > 0 ? '#ff8c00' : '#ffffff', marginTop: '10px', fontWeight: 'bold', borderBottom: '1px solid #1a1a1a', paddingBottom: '10px', paddingLeft: '4px' }}>{security_metrics.client_errors_4xx || 0}</div>
               <div style={{ marginTop: '10px' }}>{renderBreakdown(4, '#ff8c00')}</div>
             </div>
+
             <div className={styles.card}>
-              <div className={styles.cardLabel}>SERVER ERRORS <span style={{ fontSize: '10px', color: '#666', fontWeight: 'normal', marginLeft: '4px' }}>[HTTP]</span></div>
-              <div className={styles.cardDesc} style={{ fontSize: '28px', color: security_metrics.server_errors_5xx > 0 ? '#ff8c00' : '#fff', marginTop: '10px', fontWeight: 'bold', borderBottom: '1px solid #222', paddingBottom: '10px', paddingLeft: '4px' }}>{security_metrics.server_errors_5xx || 0}</div>
-              <div style={{ marginTop: '10px' }}>{renderBreakdown(5, '#ff8c00')}</div>
+              <div className={styles.cardLabel}>SERVER ERRORS <span style={{ fontSize: '10px', color: '#6a6a6a', fontWeight: 'normal', marginLeft: '4px' }}>{errors_5xx ? '[5XX ISOLATION]' : '[HTTP]'}</span></div>
+              <div className={styles.cardDesc} style={{ fontSize: '28px', color: (errors_5xx?.total ?? security_metrics.server_errors_5xx) > 0 ? '#ff8c00' : '#ffffff', marginTop: '10px', fontWeight: 'bold', borderBottom: '1px solid #1a1a1a', paddingBottom: '10px', paddingLeft: '4px' }}>
+                {errors_5xx ? errors_5xx.total : (security_metrics.server_errors_5xx || 0)}
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', marginTop: '8px', borderBottom: '1px solid #1a1a1a', paddingBottom: '8px' }}>
+                <span style={{ color: '#888888' }}>
+                  APP 5XX: <strong style={{ color: (errors_5xx?.app_5xx ?? 0) > 0 ? '#c00030' : '#00ff66' }}>{errors_5xx ? errors_5xx.app_5xx : 'N/A'}</strong>
+                </span>
+                <span style={{ color: '#888888' }}>
+                  PLATFORM: <strong style={{ color: (errors_5xx?.platform_5xx ?? 0) > 0 ? '#ff8c00' : '#6a6a6a' }}>{errors_5xx ? errors_5xx.platform_5xx : 'N/A'}</strong>
+                </span>
+              </div>
+              <div style={{ marginTop: '8px' }}>{renderBreakdown(5, '#ff8c00')}</div>
             </div>
+
             <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
               <div className={styles.card} style={{ flex: 1, minWidth: 0, textAlign: 'center' }}>
-                <div className={styles.cardLabel} style={{ fontSize: '12px', letterSpacing: '0.05em', margin: 0 }}>LEGITIMATE <span style={{ fontSize: '9px', color: '#666', fontWeight: 'normal' }}>[HEURISTIC]</span></div>
-                <div className={styles.cardDesc} style={{ fontSize: '28px', color: '#ff8c00', marginTop: '4px', fontWeight: 'bold' }}>[ {security_metrics.health_percent || '100.0'}% ]</div>
+                <div className={styles.cardLabel} style={{ fontSize: '12px', letterSpacing: '0.05em', margin: 0 }}>LEGITIMATE <span style={{ fontSize: '9px', color: '#6a6a6a', fontWeight: 'normal' }}>[HEURISTIC]</span></div>
+                <div className={styles.cardDesc} style={{ fontSize: '24px', color: '#00ff66', marginTop: '4px', fontWeight: 'bold' }}>[ {security_metrics.health_percent || '100.0'}% ]</div>
               </div>
               <div className={styles.card} style={{ flex: 1, minWidth: 0, textAlign: 'center' }}>
-                <div className={styles.cardLabel} style={{ fontSize: '12px', letterSpacing: '0.05em', margin: 0 }}>SUSPICIOUS <span style={{ fontSize: '9px', color: '#666', fontWeight: 'normal' }}>[HEURISTIC]</span></div>
-                <div className={styles.cardDesc} style={{ fontSize: '28px', color: '#ff8c00', marginTop: '4px', fontWeight: 'bold' }}>[ {(100 - parseFloat(security_metrics.health_percent || '100.0')).toFixed(1)}% ]</div>
+                <div className={styles.cardLabel} style={{ fontSize: '12px', letterSpacing: '0.05em', margin: 0 }}>SUSPICIOUS <span style={{ fontSize: '9px', color: '#6a6a6a', fontWeight: 'normal' }}>[HEURISTIC]</span></div>
+                <div className={styles.cardDesc} style={{ fontSize: '24px', color: '#ff8c00', marginTop: '4px', fontWeight: 'bold' }}>[ {(100 - parseFloat(security_metrics.health_percent || '100.0')).toFixed(1)}% ]</div>
               </div>
             </div>
+
             <div className={styles.card}>
               <div className={styles.cardLabel} style={{ fontSize: '12px' }}>
-                PROBE VECTORS <span style={{ fontSize: '9px', color: '#666', fontWeight: 'normal' }}>[CLASSIFIER]</span>
+                TRAFFIC &amp; UA CLASSES <span style={{ fontSize: '9px', color: '#6a6a6a', fontWeight: 'normal' }}>[CONTRACT V2]</span>
               </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', marginTop: '8px', borderBottom: '1px solid #1a1a1a', paddingBottom: '6px' }}>
+                <span style={{ color: '#00ff66' }}>HUMAN: {traffic ? traffic.human_est : 'N/A'}</span>
+                <span style={{ color: '#ff8c00' }}>BOT: {traffic ? traffic.bot_est : 'N/A'}</span>
+                <span style={{ color: '#c00030' }}>SCAN: {traffic ? traffic.scanner_est : 'N/A'}</span>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginTop: '8px', fontSize: '10px' }}>
+                {Array.isArray(ua_families) && ua_families.length > 0 ? ua_families.map((u) => (
+                  <div key={u.family} style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span style={{ color: UA_FAMILY_COLORS[u.family] || '#888888' }}>{String(u.family).toUpperCase()}</span>
+                    <span style={{ color: '#ffffff', fontWeight: 'bold' }}>{u.count}</span>
+                  </div>
+                )) : (
+                  <div style={{ color: '#6a6a6a' }}>No UA family breakdown in snapshot</div>
+                )}
+              </div>
+            </div>
+
+            <div className={styles.card}>
+              <div className={styles.cardLabel} style={{ fontSize: '12px' }}>
+                PROBE VECTORS <span style={{ fontSize: '9px', color: '#6a6a6a', fontWeight: 'normal' }}>{probes ? '[PROBES V2]' : '[CLASSIFIER]'}</span>
+              </div>
+              {probes?.by_outcome && (
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px 10px', marginTop: '8px', fontSize: '10px', borderBottom: '1px solid #1a1a1a', paddingBottom: '8px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span style={{ color: '#6a6a6a' }}>REACHED</span>
+                    <span style={{ color: '#d7d7d7' }}>{probes.by_outcome.reached}</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span style={{ color: '#6a6a6a' }}>404</span>
+                    <span style={{ color: '#ff8c00' }}>{probes.by_outcome.not_found}</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span style={{ color: '#6a6a6a' }}>BLOCKED</span>
+                    <span style={{ color: '#c00030' }}>{probes.by_outcome.blocked}</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span style={{ color: '#6a6a6a' }}>5XX</span>
+                    <span style={{ color: '#ff8c00' }}>{probes.by_outcome.error}</span>
+                  </div>
+                </div>
+              )}
               <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '10px' }}>
-                {[
-                  { label: 'SECRET LEAKS (.env, .git)', count: path_data.attacks ? path_data.attacks.filter(p => getPathFamily(p.path).name === 'SECRET LEAK').reduce((a, b) => a + b.count, 0) : 0, color: '#c00030' },
-                  { label: 'CMS & WORDPRESS', count: path_data.attacks ? path_data.attacks.filter(p => getPathFamily(p.path).name === 'WORDPRESS PROBE').reduce((a, b) => a + b.count, 0) : 0, color: '#ff8c00' },
-                  { label: 'API EXPOSURE', count: path_data.attacks ? path_data.attacks.filter(p => getPathFamily(p.path).name === 'API EXPOSURE').reduce((a, b) => a + b.count, 0) : 0, color: '#a855f7' },
-                  { label: 'DATABASE PROBES', count: path_data.attacks ? path_data.attacks.filter(p => getPathFamily(p.path).name === 'DATABASE PROBE').reduce((a, b) => a + b.count, 0) : 0, color: '#a855f7' }
-                ].map(v => (
+                {(probes?.families && probes.families.length > 0
+                  ? probes.families.map((f) => ({ ...getProbeFamilyMeta(f.family), count: f.count }))
+                  : [
+                      { label: 'SECRET LEAKS (.env, .git)', count: path_data.attacks ? path_data.attacks.filter(p => getPathFamily(p.path).name === 'SECRET LEAK').reduce((a, b) => a + b.count, 0) : 0, color: '#c00030' },
+                      { label: 'CMS & WORDPRESS', count: path_data.attacks ? path_data.attacks.filter(p => getPathFamily(p.path).name === 'WORDPRESS PROBE').reduce((a, b) => a + b.count, 0) : 0, color: '#ff8c00' },
+                      { label: 'API EXPOSURE', count: path_data.attacks ? path_data.attacks.filter(p => getPathFamily(p.path).name === 'API EXPOSURE').reduce((a, b) => a + b.count, 0) : 0, color: '#a855f7' },
+                      { label: 'DATABASE PROBES', count: path_data.attacks ? path_data.attacks.filter(p => getPathFamily(p.path).name === 'DATABASE PROBE').reduce((a, b) => a + b.count, 0) : 0, color: '#a855f7' }
+                    ]
+                ).map(v => (
                   <div key={v.label} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px' }}>
                     <span style={{ color: v.color }}>{v.label}</span>
                     <span style={{ color: '#ffffff', fontWeight: 'bold' }}>{v.count}</span>
                   </div>
                 ))}
               </div>
+            </div>
+
+            <div className={styles.card}>
+              <div className={styles.cardLabel} style={{ fontSize: '12px' }}>
+                AUTH EVENTS <span style={{ fontSize: '9px', color: '#6a6a6a', fontWeight: 'normal' }}>[BFF]</span>
+              </div>
+              {auth?.totals ? (
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px 10px', marginTop: '8px', fontSize: '10px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span style={{ color: '#6a6a6a' }}>LOGIN OK</span>
+                    <span style={{ color: '#00ff66', fontWeight: 'bold' }}>{auth.totals.login_success}</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span style={{ color: '#6a6a6a' }}>LOGIN FAIL</span>
+                    <span style={{ color: auth.totals.login_fail > 0 ? '#ff8c00' : '#888888', fontWeight: 'bold' }}>{auth.totals.login_fail}</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span style={{ color: '#6a6a6a' }}>403 FORBID</span>
+                    <span style={{ color: auth.totals.forbidden > 0 ? '#c00030' : '#888888', fontWeight: 'bold' }}>{auth.totals.forbidden}</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span style={{ color: '#6a6a6a' }}>LOGOUT</span>
+                    <span style={{ color: '#888888', fontWeight: 'bold' }}>{auth.totals.logout}</span>
+                  </div>
+                </div>
+              ) : (
+                <div style={{ fontSize: '10px', color: '#6a6a6a', marginTop: '8px' }}>N/A</div>
+              )}
             </div>
           </>
         )}
@@ -762,8 +985,8 @@ export default function OperationalCockpit({ defaultLens = null }) {
 
               <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
                 <span className="status">
-                  {activeLens === null && '4 LENSES ONLINE'}
-                  {activeLens === 'globe' && `${security_metrics.worker_requests_24h} REQUESTS / ${security_metrics.blocked_403} BLOCKED`}
+                  {activeLens === null && `4 LENSES ONLINE${meta?.stale ? ' // STALE' : ''}`}
+                  {activeLens === 'globe' && `${traffic ? traffic.site_requests : security_metrics.worker_requests_24h} ${traffic ? 'SITE' : 'REQUESTS'} / ${security_metrics.blocked_403} BLOCKED${errors_5xx ? ` / ${errors_5xx.app_5xx} APP 5XX` : ''}`}
                   {activeLens === 'attack-matrix' && '14 TECHNIQUES / 4 TACTICS'}
                   {activeLens === 'assurance' && '6 CONTROLS VERIFIED'}
                 </span>
@@ -776,7 +999,7 @@ export default function OperationalCockpit({ defaultLens = null }) {
             
             {/* А. Сетка 2x2 Lenses Hub (когда activeLens === null) */}
             {activeLens === null && (
-              <LensesHub onSelectLens={setActiveLens} metrics={security_metrics} />
+              <LensesHub onSelectLens={setActiveLens} metrics={security_metrics} snapshot={data} />
             )}
 
             {/* Б. Security Globe */}
@@ -876,13 +1099,58 @@ export default function OperationalCockpit({ defaultLens = null }) {
         {activeLens === null && (
           <>
             <div className={styles.threatsHeader}>SYSTEM TELEMETRY</div>
-            <div style={{ padding: '14px', border: '1px solid #1a1a1a', background: '#0a0a0a', fontSize: '11px', color: '#6a6a6a', fontFamily: 'JetBrains Mono, monospace', lineHeight: '1.6' }}>
-              <div style={{ color: '#d7d7d7', fontWeight: 'bold', marginBottom: '8px' }}>TACTICAL LENSES HUB</div>
-              <div>Select an operational lens in the central port to engage full-spectrum telemetry.</div>
-              <div style={{ marginTop: '14px', display: 'flex', justifyContent: 'space-between', borderTop: '1px solid #1a1a1a', paddingTop: '8px' }}>
-                <span style={{ color: '#888888' }}>RADAR STATUS</span>
-                <span style={{ color: '#c00030', fontWeight: 'bold' }}>READY // ONLINE</span>
+            <div style={{ padding: '14px', border: '1px solid #1a1a1a', background: '#0a0a0a', fontSize: '11px', color: '#6a6a6a', fontFamily: 'JetBrains Mono, monospace', lineHeight: '1.6', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              <div>
+                <div style={{ color: '#d7d7d7', fontWeight: 'bold', marginBottom: '6px' }}>TACTICAL LENSES HUB</div>
+                <div>Select an operational lens in the central port to engage full-spectrum telemetry.</div>
               </div>
+
+              <div style={{ borderTop: '1px solid #1a1a1a', paddingTop: '8px', display: 'flex', flexDirection: 'column', gap: '5px', fontSize: '10px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span style={{ color: '#888888' }}>BASELINE (24H)</span>
+                  <span style={{ color: BASELINE_LEVEL_COLORS[baseline?.level] || '#888888', fontWeight: 'bold' }}>
+                    {baseline ? `${String(baseline.level || 'N/A').toUpperCase()} (${baseline.ratio}x)` : 'N/A'}
+                  </span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span style={{ color: '#888888' }}>TRAFFIC (SITE / POLL)</span>
+                  <span style={{ color: '#ffffff' }}>
+                    {traffic ? `${traffic.site_requests} / ${traffic.own_polling}` : `${security_metrics.worker_requests_24h} WK`}
+                  </span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span style={{ color: '#888888' }}>5XX (APP / PLAT)</span>
+                  <span>
+                    <strong style={{ color: (errors_5xx?.app_5xx ?? 0) > 0 ? '#c00030' : '#00ff66' }}>{errors_5xx ? errors_5xx.app_5xx : 'N/A'}</strong>
+                    <span style={{ color: '#6a6a6a' }}> / </span>
+                    <strong style={{ color: (errors_5xx?.platform_5xx ?? 0) > 0 ? '#ff8c00' : '#6a6a6a' }}>{errors_5xx ? errors_5xx.platform_5xx : 'N/A'}</strong>
+                  </span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span style={{ color: '#888888' }}>PROBES / BLOCKED</span>
+                  <span style={{ color: '#d7d7d7' }}>
+                    {probes ? `${probes.total} / ${probes.by_outcome?.blocked ?? 0}` : `${security_metrics.blocked_403} BLK`}
+                  </span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span style={{ color: '#888888' }}>AUTH FAIL / 403</span>
+                  <span style={{ color: (auth?.totals?.login_fail ?? 0) > 0 || (auth?.totals?.forbidden ?? 0) > 0 ? '#ff8c00' : '#00ff66' }}>
+                    {auth?.totals ? `${auth.totals.login_fail} / ${auth.totals.forbidden}` : 'N/A'}
+                  </span>
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid #1a1a1a', paddingTop: '8px', fontSize: '10px' }}>
+                <span style={{ color: '#888888' }}>SNAPSHOT STATE</span>
+                <span style={{ color: !isLive || meta?.stale || meta?.quota_warning ? '#ff8c00' : '#00ff66', fontWeight: 'bold' }}>
+                  {!isLive ? 'FALLBACK' : meta?.quota_warning ? 'QUOTA WARN' : meta?.stale ? 'STALE' : 'FRESH // V2'}
+                </span>
+              </div>
+              {errorMsg && (
+                <div style={{ fontSize: '9px', color: '#ff8c00', borderTop: '1px solid #1a1a1a', paddingTop: '6px' }}>
+                  {errorMsg}
+                </div>
+              )}
             </div>
           </>
         )}
