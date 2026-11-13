@@ -87,17 +87,28 @@ def main():
     recent_cves.sort(key=lambda x: (x['cvss'], x['epss']), reverse=True)
 
     os.makedirs('site/static', exist_ok=True)
-    
-    # СОХРАНЯЕМ В НОВОМ ФОРМАТЕ
+    feed_path = 'site/static/cve-feed.json'
+
+    if os.path.exists(feed_path):
+        try:
+            with open(feed_path, 'r', encoding='utf-8') as existing_file:
+                existing_data = json.load(existing_file)
+            if existing_data.get('cves') == recent_cves:
+                print(f"No CVE/CVSS/EPSS changes detected across {len(recent_cves)} items; skipping write to avoid no-op Pages rebuild.")
+                return
+        except Exception as e:
+            print(f"Could not read existing feed for diff check: {e}")
+
+    # Save feed only when CVE/CVSS/EPSS payload changes
     output_data = {
         "last_sync": datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=4))).strftime("%Y-%m-%d %H:%M GMT+4"),
         "cves": recent_cves
     }
-    
-    with open('site/static/cve-feed.json', 'w', encoding='utf-8') as f:
+
+    with open(feed_path, 'w', encoding='utf-8') as f:
         json.dump(output_data, f, indent=2)
 
-    print(f"Saved {len(recent_cves)} CVEs to site/static/cve-feed.json")
+    print(f"Saved {len(recent_cves)} CVEs to {feed_path}")
 
 if __name__ == '__main__':
     main()

@@ -2,7 +2,7 @@ name: Update Live Threats
 
 on:
   schedule:
-    - cron: '0 20,2,8,14 * * *'
+    - cron: '0 8,20 * * *'
   workflow_dispatch:
 
 permissions:
