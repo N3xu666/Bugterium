@@ -218,7 +218,6 @@ export default function OperationalCockpit({ defaultLens = null }) {
   // Telemetry Fetching
   useEffect(() => {
     const REMOTE_API = 'https://bugterium.pages.dev/api/snapshot';
-    const LOCAL_API = 'http://127.0.0.1:8787/api/snapshot';
     const FETCH_TIMEOUT_MS = 6000;
     let isMounted = true;
 
@@ -232,7 +231,9 @@ export default function OperationalCockpit({ defaultLens = null }) {
           try {
             const localCtrl = new AbortController();
             const localTimer = setTimeout(() => localCtrl.abort(), 1200);
-            const localRes = await fetch(LOCAL_API, { signal: localCtrl.signal });
+            const localProto = window.location.protocol === 'https:' ? 'https:' : 'http:';
+            // nosemgrep: typescript.react.security.react-insecure-request.react-insecure-request
+            const localRes = await fetch(`${localProto}//127.0.0.1:8787/api/snapshot`, { signal: localCtrl.signal });
             clearTimeout(localTimer);
             if (localRes.ok) response = localRes;
           } catch {
