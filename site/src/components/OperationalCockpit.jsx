@@ -442,6 +442,38 @@ export default function OperationalCockpit({ defaultLens = null }) {
     transition: 'all 0.2s'
   });
 
+  const SPECIAL_SOURCE_TAGS = {
+    T1: '[TOR]',
+    XX: '[UNKNOWN]',
+  };
+
+  const getSpecialSourceTag = (code) => {
+    if (!code) return null;
+    if (SPECIAL_SOURCE_TAGS[code]) return SPECIAL_SOURCE_TAGS[code];
+    const coords = countryCoords[code];
+    return Array.isArray(coords) && coords.length >= 2 ? null : '[NO GEO]';
+  };
+
+  const resolveFocusCoords = (code) => {
+    if (!code || code === 'XX' || code === 'T1') return null;
+    const coords = countryCoords[code];
+    if (!Array.isArray(coords) || coords.length < 2) return null;
+    return { lat: coords[0], lng: coords[1] };
+  };
+
+  const handleCountrySelect = (country) => {
+    if (focusCountry === country) {
+      setFocusCountry(null);
+      setFocusCoords(null);
+    } else {
+      setFocusCountry(country);
+      setFocusCoords(resolveFocusCoords(country));
+    }
+    setFocusPath(null);
+  };
+
+  const specialSources = filteredCountries.filter(item => getSpecialSourceTag(item.country) !== null);
+
   const handleTabClick = (tab) => {
     setActiveTab(tab);
     setFocusPath(null);
@@ -785,16 +817,7 @@ export default function OperationalCockpit({ defaultLens = null }) {
                         layers={layers} 
                         focusPath={focusPath}
                         viewMode={viewMode}
-                        onCountryClick={(country) => { 
-                          if (focusCountry === country) { 
-                            setFocusCountry(null); 
-                            setFocusCoords(null); 
-                          } else { 
-                            setFocusCountry(country); 
-                            setFocusCoords({ lat: countryCoords[country][0], lng: countryCoords[country][1] }); 
-                          } 
-                          setFocusPath(null); 
-                        }} 
+                        onCountryClick={handleCountrySelect} 
                       />
                     </Suspense>
                   )}
@@ -919,8 +942,27 @@ export default function OperationalCockpit({ defaultLens = null }) {
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: 'calc(100vh - 350px)', overflowY: 'auto' }}>
+              {activeTab === 'countries' && specialSources.length > 0 && (
+                <div style={{
+                  padding: '6px 10px',
+                  border: '1px solid #1a1a1a',
+                  backgroundColor: '#0a0a0a',
+                  fontSize: '10px',
+                  color: '#6a6a6a',
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  gap: '8px'
+                }}>
+                  <span>SPECIAL SOURCES</span>
+                  <span style={{ color: '#d7d7d7' }}>
+                    {specialSources.map(s => `${s.country}:${s.count}`).join(' // ')}
+                  </span>
+                </div>
+              )}
               {activeTab === 'countries' && filteredCountries.map(item => {
                 const isFocused = focusCountry === item.country;
+                const specialTag = getSpecialSourceTag(item.country);
                 return (
                   <div 
                     key={item.country} 
@@ -930,19 +972,17 @@ export default function OperationalCockpit({ defaultLens = null }) {
                       borderColor: isFocused ? '#c00030' : undefined, 
                       backgroundColor: isFocused ? 'rgba(192, 0, 48, 0.12)' : undefined 
                     }} 
-                    onClick={() => {
-                      if (focusCountry === item.country) {
-                        setFocusCountry(null);
-                        setFocusCoords(null);
-                      } else {
-                        setFocusCountry(item.country);
-                        setFocusCoords({ lat: countryCoords[item.country][0], lng: countryCoords[item.country][1] });
-                      }
-                      setFocusPath(null);
-                    }}
+                    onClick={() => handleCountrySelect(item.country)}
                   >
                     <div className={styles.threatHeader}>
-                      <div className={styles.threatId}>{item.country}</div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <div className={styles.threatId}>{item.country}</div>
+                        {specialTag && (
+                          <span style={{ fontSize: '9px', color: '#6a6a6a', border: '1px solid #1a1a1a', padding: '1px 4px' }}>
+                            {specialTag}
+                          </span>
+                        )}
+                      </div>
                       <div className={styles.threatRight}>
                         <div className={styles.threatCvss}>{item.count}</div>
                       </div>

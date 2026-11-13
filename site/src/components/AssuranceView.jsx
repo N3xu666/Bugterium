@@ -146,7 +146,7 @@ export default function AssuranceView() {
                     <span style={{ fontSize: '9px', color: isCritical ? '#c00030' : '#888', border: '1px solid #2a2a2a', padding: '1px 4px' }}>
                       {item.severity}
                     </span>
-                    <span style={{ fontSize: '9px', color: '#00ff66', border: '1px solid #00aa44', padding: '1px 5px', fontWeight: 'bold' }}>
+                    <span style={{ fontSize: '9px', color: '#00ff66', border: '1px solid #00ff66', padding: '1px 5px', fontWeight: 'bold' }}>
                       ● {item.status}
                     </span>
                   </div>
@@ -184,7 +184,7 @@ export default function AssuranceView() {
               <span style={{ color: '#ffffff', fontWeight: 'bold', fontSize: '13px' }}>
                 [{selectedClaim.id}] {selectedClaim.title}
               </span>
-              <span style={{ fontSize: '10px', color: '#00ff66', border: '1px solid #00aa44', padding: '1px 6px' }}>
+              <span style={{ fontSize: '10px', color: '#00ff66', border: '1px solid #00ff66', padding: '1px 6px' }}>
                 STATUS: {selectedClaim.status}
               </span>
             </div>
