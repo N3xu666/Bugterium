@@ -323,10 +323,12 @@ export default function NeuralGraph({ onReady, embedded = false, onBackToLenses 
   const [isReady, setIsReady] = useState(false);
   const [fading, setFading] = useState(false);
   const fadeTimerRef = useRef(null);
+  const searchTimerRef = useRef(null);
 
   useEffect(() => {
     return () => {
       if (fadeTimerRef.current) clearTimeout(fadeTimerRef.current);
+      if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
     };
   }, []);
   
@@ -517,7 +519,8 @@ export default function NeuralGraph({ onReady, embedded = false, onBackToLenses 
       if (e.key === '/' && document.activeElement !== searchInputRef.current) {
         e.preventDefault();
         setIsSearchOpen(true);
-        setTimeout(() => searchInputRef.current?.focus(), 50);
+        if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+        searchTimerRef.current = setTimeout(() => searchInputRef.current?.focus(), 50);
         return;
       }
       if (e.key === 'Escape') {

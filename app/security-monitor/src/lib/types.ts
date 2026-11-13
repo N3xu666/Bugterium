@@ -13,6 +13,7 @@ export interface Env {
   CF_ACCOUNT_ID: string;
   CF_API_TOKEN: string;
   MONITOR_KV: KVNamespace;
+  DB?: D1Database;
   // M-03 (v2): optional host config for traffic breakdown.
   // Unset => 	raffic omitted from SnapshotResponse.
   SITE_HOST?: string;
@@ -94,6 +95,9 @@ export interface TrafficBreakdown {
   // Pass 196: raw Worker invocations from workersInvocationsAdaptive (cron + fetch combined).
   total_workers: number;
   hosts: HostTrafficItem[];
+  human_est: number;
+  bot_est: number;
+  scanner_est: number;
 }
 
 // M-04 (v2): Probe outcome split (reached / not_found / blocked / error).
@@ -120,6 +124,67 @@ export interface AggregateTrafficConfig {
   monitorHost?: string;
   bffHost?: string;
 }
+
+// P2.4 (v2): User-Agent family classification (no raw UA).
+export type UaFamilyName = 'browser' | 'automation' | 'scanner' | 'crawler' | 'unknown';
+
+export interface UaFamilyItem {
+  family: UaFamilyName;
+  count: number;
+}
+
+// P2.5 & M-05 (v2): 5xx error breakdown separating platform (502/503/504) vs app (500/501/505).
+export interface Error5xxCodeItem {
+  code: number;
+  count: number;
+  classification: 'platform' | 'app';
+}
+
+export interface Errors5xxBreakdown {
+  total: number;
+  platform_5xx: number;
+  app_5xx: number;
+  by_code: Error5xxCodeItem[];
+  by_cache: Array<{ status: string; count: number }>;
+  by_origin_status: Array<{ code: number; count: number }>;
+}
+
+// P1.1 (v2): BFF auth_events hourly tracking (0 PII, counts only).
+export interface AuthEventInput {
+  hour_epoch: number;
+  event: string;
+  count: number;
+}
+
+export interface AuthHourItem {
+  hour: string;
+  login_success: number;
+  login_fail: number;
+  forbidden: number;
+  logout: number;
+}
+
+export interface AuthBreakdown {
+  totals: {
+    login_success: number;
+    login_fail: number;
+    forbidden: number;
+    logout: number;
+  };
+  by_hour: AuthHourItem[];
+}
+
+// P1.1 (v2): Rolling 48h KV baseline (0 extra KV writes).
+export type BaselineLevel = 'normal' | 'elevated' | 'spike' | 'critical';
+
+export interface BaselineBreakdown {
+  current_24h: number;
+  previous_24h: number;
+  ratio: number;
+  level: BaselineLevel;
+  hourly_history: TimelineItem[];
+}
+
 export interface SnapshotMeta {
   generated_at: string;
   window_start: string;
@@ -134,6 +199,10 @@ export interface SnapshotResponse extends MonitorResponse {
   meta: SnapshotMeta;
   traffic?: TrafficBreakdown;  // M-03: v2 additive, undefined = not computed
   probes?: ProbesBreakdown;  // M-04: v2 additive, undefined = not computed
+  errors_5xx?: Errors5xxBreakdown;
+  auth?: AuthBreakdown;
+  baseline?: BaselineBreakdown;
+  ua_families?: UaFamilyItem[];
 }
 
 export interface MonitorResponse {

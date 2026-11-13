@@ -23,6 +23,15 @@ import type {
   ProbesBreakdown,
   ProbesOutcome,
   ProbesFamily,
+  UaFamilyName,
+  UaFamilyItem,
+  Error5xxCodeItem,
+  Errors5xxBreakdown,
+  AuthEventInput,
+  AuthHourItem,
+  AuthBreakdown,
+  BaselineLevel,
+  BaselineBreakdown,
 } from './types';
 
 // Preserved verbatim from pre-refactor line 152 — drives client-side ONLY BOTS filter (F-03).
@@ -125,21 +134,26 @@ export function aggregate(account: GraphQLAccountData, now: Date): MonitorRespon
     });
   }
 
-  // ---- Paths (F-03: attack/benign split + correlations map) ----
-  const pathData: PathItem[] = [];
+  // ---- Paths (F-03: attack/benign split + correlations map, with [hex32] privacy mask) ----
+  const pathCountMap = new Map<string, number>();
   for (const g of byPath) {
     const p = g.dimensions.clientRequestPath;
-    if (p) pathData.push({ path: p, count: g.count });
+    if (p) {
+      const sanitized = sanitizeProbePath(p);
+      pathCountMap.set(sanitized, (pathCountMap.get(sanitized) || 0) + g.count);
+    }
   }
+  const pathData: PathItem[] = Array.from(pathCountMap.entries()).map(([path, count]) => ({ path, count }));
 
   const attackPaths = pathData.filter((x) => ATTACK_PATH_REGEX.test(x.path));
   const benignPaths = pathData.filter((x) => !ATTACK_PATH_REGEX.test(x.path));
 
   const pathCountries: Record<string, Record<string, number>> = {};
   for (const g of byPathCountry) {
-    const path = g.dimensions.clientRequestPath;
+    const rawPath = g.dimensions.clientRequestPath;
     const country = g.dimensions.clientCountryName;
-    if (path && country && country !== UNKNOWN_COUNTRY) {
+    if (rawPath && country && country !== UNKNOWN_COUNTRY) {
+      const path = sanitizeProbePath(rawPath);
       if (!pathCountries[path]) pathCountries[path] = {};
       pathCountries[path][country] = (pathCountries[path][country] || 0) + g.count;
     }
@@ -236,6 +250,17 @@ export function aggregateTraffic(
   // (clamped to 0). Keep the field at 0 for v2 contract compat; expose raw total_workers.
   const cronInvocations = 0;
 
+  // P2.4: UA-estimated human / bot / scanner breakdown from byUserAgent.
+  let humanEst = 0;
+  let botEst = 0;
+  let scannerEst = 0;
+  for (const g of account.byUserAgent ?? []) {
+    const fam = classifyUaFamily(g.dimensions.userAgent);
+    if (fam === 'browser') humanEst += g.count;
+    else if (fam === 'crawler' || fam === 'automation') botEst += g.count;
+    else if (fam === 'scanner') scannerEst += g.count;
+  }
+
   return {
     site_requests: siteRequests,
     own_polling: ownPolling,
@@ -244,6 +269,9 @@ export function aggregateTraffic(
     cron_invocations: cronInvocations,
     total_workers: totalWorkerRequests,
     hosts,
+    human_est: humanEst,
+    bot_est: botEst,
+    scanner_est: scannerEst,
   };
 }
 
@@ -337,4 +365,205 @@ export function aggregateProbes(account: GraphQLAccountData): ProbesBreakdown {
     .sort((a, b) => b.count - a.count);
 
   return { total, by_outcome, top_paths, families };
+}
+
+// P2.4 (v2): User-Agent family classifier (no raw UA exposed).
+const UA_SCANNER_RE =
+  /(sqlmap|nikto|nmap|masscan|nuclei|ffuf|dirb|dirbuster|gobuster|feroxbuster|httpx|zgrab|censys|shodan|expanse|wpscan|acunetix|nessus|burp)/i;
+const UA_CRAWLER_RE =
+  /(googlebot|bingbot|yandexbot|duckduckbot|baiduspider|slurp|facebot|ia_archiver|applebot|semrushbot|ahrefsbot|mj12bot|bot|crawl|spider)/i;
+const UA_AUTOMATION_RE =
+  /(curl|wget|python|go-http|java\/|okhttp|axios|node-fetch|libwww|httpie|postman|insomnia|headless|phantom|puppet|selenium|playwright)/i;
+const UA_BROWSER_RE = /(mozilla\/5\.0.*(chrome|safari|firefox|edg|opr)|opera)/i;
+
+export function classifyUaFamily(ua: string | null | undefined): UaFamilyName {
+  if (!ua || ua === UNKNOWN_UA) return 'unknown';
+  if (UA_SCANNER_RE.test(ua)) return 'scanner';
+  if (UA_CRAWLER_RE.test(ua)) return 'crawler';
+  if (UA_AUTOMATION_RE.test(ua)) return 'automation';
+  if (UA_BROWSER_RE.test(ua)) return 'browser';
+  return 'unknown';
+}
+
+export function aggregateUaFamilies(account: GraphQLAccountData): UaFamilyItem[] {
+  const byUserAgent = account.byUserAgent ?? [];
+  const counts: Record<UaFamilyName, number> = {
+    browser: 0,
+    automation: 0,
+    scanner: 0,
+    crawler: 0,
+    unknown: 0,
+  };
+  for (const g of byUserAgent) {
+    const fam = classifyUaFamily(g.dimensions.userAgent);
+    counts[fam] += g.count;
+  }
+  return (Object.entries(counts) as Array<[UaFamilyName, number]>)
+    .filter(([, count]) => count > 0)
+    .map(([family, count]) => ({ family, count }))
+    .sort((a, b) => b.count - a.count);
+}
+
+// P2.5 & M-05 (v2): Separate platform 5xx (502/503/504, cache=MISS, origin=0) from app 5xx.
+const PLATFORM_5XX_CODES = new Set<number>([502, 503, 504]);
+
+export function aggregateErrors5xx(account: GraphQLAccountData): Errors5xxBreakdown {
+  const httpGroups = account.byStatusCountry ?? [];
+  const codeCounts = new Map<number, number>();
+  let total = 0;
+  let platform5xx = 0;
+  let app5xx = 0;
+
+  for (const g of httpGroups) {
+    const status = g.dimensions.edgeResponseStatus;
+    if (status >= 500 && status < 600) {
+      total += g.count;
+      codeCounts.set(status, (codeCounts.get(status) || 0) + g.count);
+      if (PLATFORM_5XX_CODES.has(status)) {
+        platform5xx += g.count;
+      } else {
+        app5xx += g.count;
+      }
+    }
+  }
+
+  const by_code: Error5xxCodeItem[] = Array.from(codeCounts.entries())
+    .map(([code, count]) => ({
+      code,
+      count,
+      classification: PLATFORM_5XX_CODES.has(code) ? ('platform' as const) : ('app' as const),
+    }))
+    .sort((a, b) => b.count - a.count || a.code - b.code);
+
+  const by_cache: Array<{ status: string; count: number }> = [];
+  if (platform5xx > 0) by_cache.push({ status: 'MISS', count: platform5xx });
+  if (app5xx > 0) by_cache.push({ status: 'DYNAMIC', count: app5xx });
+
+  const by_origin_status: Array<{ code: number; count: number }> = [];
+  if (platform5xx > 0) by_origin_status.push({ code: 0, count: platform5xx });
+  for (const item of by_code) {
+    if (item.classification === 'app') {
+      by_origin_status.push({ code: item.code, count: item.count });
+    }
+  }
+
+  return {
+    total,
+    platform_5xx: platform5xx,
+    app_5xx: app5xx,
+    by_code,
+    by_cache,
+    by_origin_status,
+  };
+}
+
+// P1.1 (v2): Aggregate D1 auth_events into 24 hourly buckets + totals (0 PII).
+export function aggregateAuth(events: AuthEventInput[], now: Date): AuthBreakdown {
+  const currentHourKey = Math.floor(now.getTime() / HOUR_MS);
+  const bucketMap = new Map<number, AuthHourItem>();
+
+  for (let i = HOURS_IN_TIMELINE - 1; i >= 0; i--) {
+    const key = currentHourKey - i;
+    bucketMap.set(key, {
+      hour: new Date(key * HOUR_MS).toISOString(),
+      login_success: 0,
+      login_fail: 0,
+      forbidden: 0,
+      logout: 0,
+    });
+  }
+
+  const totals = {
+    login_success: 0,
+    login_fail: 0,
+    forbidden: 0,
+    logout: 0,
+  };
+
+  for (const ev of events) {
+    const key = Math.floor(ev.hour_epoch / 3600);
+    const bucket = bucketMap.get(key);
+    if (!bucket) continue;
+    if (ev.event === 'login_success') {
+      bucket.login_success += ev.count;
+      totals.login_success += ev.count;
+    } else if (ev.event === 'login_fail') {
+      bucket.login_fail += ev.count;
+      totals.login_fail += ev.count;
+    } else if (ev.event === 'forbidden') {
+      bucket.forbidden += ev.count;
+      totals.forbidden += ev.count;
+    } else if (ev.event === 'logout') {
+      bucket.logout += ev.count;
+      totals.logout += ev.count;
+    }
+  }
+
+  return {
+    totals,
+    by_hour: Array.from(bucketMap.values()),
+  };
+}
+
+// P1.1 (v2): Rolling 48h baseline stored inside snapshot:latest (0 extra KV writes).
+const HOURS_IN_BASELINE = 48;
+
+export function computeBaseline(
+  account: GraphQLAccountData,
+  now: Date,
+  prevBaseline?: BaselineBreakdown,
+): BaselineBreakdown {
+  const currentHourKey = Math.floor(now.getTime() / HOUR_MS);
+  const minKey = currentHourKey - (HOURS_IN_BASELINE - 1);
+  const splitKey = currentHourKey - (HOURS_IN_TIMELINE - 1);
+
+  const merged = new Map<number, number>();
+  for (const item of prevBaseline?.hourly_history ?? []) {
+    const key = Math.floor(new Date(item.hour).getTime() / HOUR_MS);
+    if (!Number.isNaN(key) && key >= minKey && key <= currentHourKey) {
+      merged.set(key, item.count);
+    }
+  }
+  const currentByHour = new Map<number, number>();
+  for (const g of account.byHour ?? []) {
+    const key = Math.floor(new Date(g.dimensions.datetimeHour).getTime() / HOUR_MS);
+    if (!Number.isNaN(key) && key >= minKey && key <= currentHourKey) {
+      currentByHour.set(key, (currentByHour.get(key) || 0) + g.count);
+    }
+  }
+  for (const [key, count] of currentByHour.entries()) {
+    merged.set(key, count);
+  }
+
+  let current24h = 0;
+  let previous24h = 0;
+  const hourly_history: TimelineItem[] = [];
+  const sortedKeys = Array.from(merged.keys()).sort((a, b) => a - b);
+
+  for (const key of sortedKeys) {
+    const count = merged.get(key) || 0;
+    if (key >= splitKey) {
+      current24h += count;
+    } else {
+      previous24h += count;
+    }
+    hourly_history.push({
+      hour: new Date(key * HOUR_MS).toISOString(),
+      count,
+    });
+  }
+
+  const ratio = previous24h > 0 ? Number((current24h / previous24h).toFixed(2)) : 1.0;
+  let level: BaselineLevel = 'normal';
+  if (ratio >= 3.0) level = 'critical';
+  else if (ratio >= 2.0) level = 'spike';
+  else if (ratio >= 1.5) level = 'elevated';
+
+  return {
+    current_24h: current24h,
+    previous_24h: previous24h,
+    ratio,
+    level,
+    hourly_history,
+  };
 }

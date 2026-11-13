@@ -2,8 +2,22 @@
 // Phase 1 (Pass 193): separates collection (cron -> KV) from serving (fetch -> KV).
 // Contract v2 is additive on v1: all v1 keys preserved verbatim via aggregate().
 
-import type { GraphQLAccountData, SnapshotMeta, SnapshotResponse, AggregateTrafficConfig } from './types';
-import { aggregate, aggregateTraffic, aggregateProbes } from './aggregate';
+import type {
+  GraphQLAccountData,
+  SnapshotMeta,
+  SnapshotResponse,
+  AggregateTrafficConfig,
+  AuthEventInput,
+} from './types';
+import {
+  aggregate,
+  aggregateTraffic,
+  aggregateProbes,
+  aggregateErrors5xx,
+  aggregateUaFamilies,
+  aggregateAuth,
+  computeBaseline,
+} from './aggregate';
 
 const SCHEMA_VERSION = '2.0' as const;
 
@@ -15,6 +29,8 @@ export interface BuildSnapshotOptions {
   quotaWarning?: boolean;
   // M-03 (v2): optional; unset => 	raffic omitted from SnapshotResponse.
   trafficConfig?: AggregateTrafficConfig;
+  authEvents?: AuthEventInput[];
+  previousSnapshot?: SnapshotResponse;
 }
 
 export function buildSnapshot(
@@ -40,6 +56,10 @@ export function buildSnapshot(
   }
   // M-04 (v2): probes always built (no config needed). Additive.
   result.probes = aggregateProbes(account);
+  result.errors_5xx = aggregateErrors5xx(account);
+  result.ua_families = aggregateUaFamilies(account);
+  result.auth = aggregateAuth(options.authEvents ?? [], options.windowEnd);
+  result.baseline = computeBaseline(account, options.windowEnd, options.previousSnapshot?.baseline);
   return result;
 }
 

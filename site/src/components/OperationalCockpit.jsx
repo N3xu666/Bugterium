@@ -108,6 +108,9 @@ const getPathFamily = (path) => {
   if (path.includes('phpmyadmin') || path.includes('mysql') || path.includes('adminer')) {
     return { name: 'DATABASE PROBE', color: '#a855f7' };
   }
+  if (path === '/[hex32]' || /^\/[0-9a-f]{32}$/i.test(path)) {
+    return { name: 'HEX32 PROBE', color: '#a855f7' };
+  }
   return { name: 'SUSPICIOUS URI', color: '#6a6a6a' };
 };
 
@@ -372,15 +375,33 @@ export default function OperationalCockpit({ defaultLens = null }) {
   const renderBreakdown = (prefix, color) => {
     if (!status_breakdown) return null;
     const filtered = status_breakdown.filter(s => s.code >= prefix * 100 && s.code < (prefix + 1) * 100).sort((a, b) => a.code - b.code);
-    if (filtered.length === 0) return <div style={{ fontSize: '10px', color: '#666', marginTop: '5px' }}>No errors</div>;
+    if (filtered.length === 0) return <div style={{ fontSize: '10px', color: '#6a6a6a', marginTop: '5px' }}>No errors</div>;
+    const get5xxOriginTag = (code) => {
+      if (prefix !== 5) return null;
+      const isPlatform = code === 502 || code === 503 || code === 504;
+      return {
+        tag: isPlatform ? '[PLAT]' : '[APP]',
+        title: isPlatform
+          ? 'Platform / Cloudflare Edge error (cache=miss, origin=0)'
+          : 'Application / Origin Worker error',
+      };
+    };
     return (
       <div style={{ display: 'grid', gridAutoFlow: 'column', gridTemplateRows: 'repeat(' + Math.ceil(filtered.length / 2) + ', auto)', gap: '4px 15px', marginTop: '5px' }}>
-        {filtered.map(s => (
-          <div key={s.code} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: color, borderBottom: '1px solid #222', paddingBottom: '2px', paddingLeft: '4px', paddingRight: '4px' }}>
-            <span>{s.code}</span>
-            <span>{s.count}</span>
-          </div>
-        ))}
+        {filtered.map(s => {
+          const originTag = s.count > 0 ? get5xxOriginTag(s.code) : null;
+          return (
+            <div key={s.code} title={originTag ? originTag.title : undefined} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '11px', color: color, borderBottom: '1px solid #222', paddingBottom: '2px', paddingLeft: '4px', paddingRight: '4px' }}>
+              <span>
+                {s.code}
+                {originTag && (
+                  <span style={{ fontSize: '8px', color: '#6a6a6a', marginLeft: '4px' }}>{originTag.tag}</span>
+                )}
+              </span>
+              <span>{s.count}</span>
+            </div>
+          );
+        })}
       </div>
     );
   };

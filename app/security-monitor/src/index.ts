@@ -4,7 +4,7 @@
 //   - scheduled(): cron */5 fetches GraphQL once, writes snapshot to KV
 // V1 contract preserved (aggregate output unchanged); v2 adds schema_version + meta.
 
-import type { Env, GraphQLAccountData, SnapshotResponse } from './lib/types';
+import type { Env, GraphQLAccountData, SnapshotResponse, AuthEventInput } from './lib/types';
 import { errorResponse, jsonResponse } from './lib/errors';
 import { baseHeaders, corsHeaders, checkMethod, checkPath } from './lib/security';
 import { fetchGraphQLAccount } from './lib/graphql';
@@ -93,11 +93,44 @@ export default {
     }
 
     try {
+      let previousSnapshot: SnapshotResponse | undefined;
+      try {
+        const prevRaw = await env.MONITOR_KV.get(KV_KEY);
+        if (prevRaw !== null) {
+          previousSnapshot = JSON.parse(prevRaw) as SnapshotResponse;
+        }
+      } catch (prevErr) {
+        console.error('scheduled_prev_read_failed', { message: (prevErr as Error).message });
+      }
+
+      let authEvents: AuthEventInput[] = [];
+      if (env.DB) {
+        try {
+          const startEpoch = Math.floor(windowStart.getTime() / 1000);
+          const d1Res = await env.DB.prepare(
+            'SELECT (created_at / 3600) * 3600 AS hour_epoch, event, COUNT(*) AS count FROM auth_events WHERE created_at >= ? GROUP BY hour_epoch, event',
+          )
+            .bind(startEpoch)
+            .all<AuthEventInput>();
+          if (d1Res && Array.isArray(d1Res.results)) {
+            authEvents = d1Res.results;
+          }
+        } catch (dbErr) {
+          console.error('scheduled_d1_auth_failed', { message: (dbErr as Error).message });
+        }
+      }
+
       const trafficConfig =
         env.SITE_HOST || env.MONITOR_HOST || env.BFF_HOST
           ? { siteHost: env.SITE_HOST, monitorHost: env.MONITOR_HOST, bffHost: env.BFF_HOST }
           : undefined;
-      const snapshot = buildSnapshot(account, { windowStart, windowEnd, trafficConfig });
+      const snapshot = buildSnapshot(account, {
+        windowStart,
+        windowEnd,
+        trafficConfig,
+        authEvents,
+        previousSnapshot,
+      });
       await env.MONITOR_KV.put(KV_KEY, JSON.stringify(snapshot));
     } catch (err) {
       console.error('scheduled_write_failed', { message: (err as Error).message });
