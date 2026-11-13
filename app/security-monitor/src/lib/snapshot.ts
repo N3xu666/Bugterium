@@ -17,6 +17,8 @@ import {
   aggregateUaFamilies,
   aggregateAuth,
   computeBaseline,
+  aggregateAttackerNetworks,
+  aggregateSpecialSources,
 } from './aggregate';
 
 const SCHEMA_VERSION = '2.0' as const;
@@ -60,6 +62,8 @@ export function buildSnapshot(
   result.ua_families = aggregateUaFamilies(account);
   result.auth = aggregateAuth(options.authEvents ?? [], options.windowEnd);
   result.baseline = computeBaseline(account, options.windowEnd, options.previousSnapshot?.baseline);
+  result.attacker_networks = aggregateAttackerNetworks(account);
+  result.special_sources = aggregateSpecialSources(account);
   return result;
 }
 

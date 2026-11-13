@@ -7,7 +7,7 @@
 import type { Env, GraphQLAccountData, SnapshotResponse, AuthEventInput } from './lib/types';
 import { errorResponse, jsonResponse } from './lib/errors';
 import { baseHeaders, corsHeaders, checkMethod, checkPath } from './lib/security';
-import { fetchGraphQLAccount } from './lib/graphql';
+import { fetchGraphQLAccount, fetchGraphQLAsn } from './lib/graphql';
 import { buildSnapshot, markStale } from './lib/snapshot';
 
 const KV_KEY = 'snapshot:latest';
@@ -93,6 +93,12 @@ export default {
     }
 
     try {
+      try {
+        account.byAsn = await fetchGraphQLAsn(env, startTime);
+      } catch (asnErr) {
+        console.error('scheduled_graphql_asn_skipped', { message: (asnErr as Error).message });
+      }
+
       let previousSnapshot: SnapshotResponse | undefined;
       try {
         const prevRaw = await env.MONITOR_KV.get(KV_KEY);

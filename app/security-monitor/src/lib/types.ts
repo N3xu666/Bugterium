@@ -185,6 +185,29 @@ export interface BaselineBreakdown {
   hourly_history: TimelineItem[];
 }
 
+// TD #42 (Phase 2.5): Probe-traffic ASN aggregation (k >= 5, 0 IPs) & T1/XX special sources.
+export interface GraphQLAsnGroup {
+  count: number;
+  dimensions: {
+    clientAsn: number | string | null;
+    clientASNDescription: string | null;
+    edgeResponseStatus: number;
+  };
+}
+
+export interface AttackerNetworkItem {
+  asn: number;
+  description: string;
+  count: number;
+}
+
+export interface SpecialSourcesBreakdown {
+  tor_requests: number;
+  unknown_geo: number;
+  total: number;
+  by_code: GeoDataItem[];
+}
+
 export interface SnapshotMeta {
   generated_at: string;
   window_start: string;
@@ -203,6 +226,8 @@ export interface SnapshotResponse extends MonitorResponse {
   auth?: AuthBreakdown;
   baseline?: BaselineBreakdown;
   ua_families?: UaFamilyItem[];
+  attacker_networks?: AttackerNetworkItem[];
+  special_sources?: SpecialSourcesBreakdown;
 }
 
 export interface MonitorResponse {
@@ -276,6 +301,7 @@ export interface GraphQLAccountData {
   byPathCountry: GraphQLPathCountryGroup[];
   byUserAgent: GraphQLUserAgentGroup[];
   byHost?: GraphQLHostGroup[];  // M-03: v2 additive, undefined = not queried
+  byAsn?: GraphQLAsnGroup[];    // TD #42: optional ASN probe slice, undefined = unavailable
 }
 
 export interface GraphQLError {
