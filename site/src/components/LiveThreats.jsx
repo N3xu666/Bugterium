@@ -1,13 +1,34 @@
-﻿import React, { useEffect, useState } from 'react';
+﻿import React, { useEffect, useState, useRef } from 'react';
 import styles from '../pages/index.module.css';
 
-export default function LiveThreats({ onSync }) {
-  const [threats, setThreats] = useState([]);
-  const [loading, setLoading] = useState(true);
+function formatSyncTimestamp(raw) {
+  if (!raw) return '';
+  const parts = raw.split(' ');
+  if (parts[0] && parts[0].includes('-')) {
+    const ymd = parts[0].split('-');
+    if (ymd.length === 3) parts[0] = ymd[2] + '-' + ymd[1] + '-' + ymd[0];
+  }
+  return parts.join(' ');
+}
+
+function LiveThreats({ onSync, feedData = null }) {
+  const [threats, setThreats] = useState(() => (feedData?.cves ? feedData.cves : []));
+  const [loading, setLoading] = useState(() => !(feedData && Array.isArray(feedData.cves)));
   const [error, setError] = useState(null);
+  const hoverTimerRef = useRef(null);
 
   useEffect(() => {
     let isMounted = true;
+
+    const applyFeed = (data) => {
+      if (!isMounted || !data) return;
+      setThreats(data.cves || []);
+      if (onSync && data.last_sync) {
+        onSync(formatSyncTimestamp(data.last_sync));
+      }
+      setLoading(false);
+      setError(null);
+    };
 
     const fetchData = () => {
       fetch('/cve-feed.json', { cache: 'no-store' })
@@ -15,21 +36,7 @@ export default function LiveThreats({ onSync }) {
           if (!res.ok) throw new Error('Failed to fetch');
           return res.json();
         })
-        .then((data) => {
-          if (isMounted) {
-            setThreats(data.cves);
-            if (onSync) {
-              const parts = data.last_sync.split(' ');
-              if (parts[0] && parts[0].includes('-')) {
-                const ymd = parts[0].split('-');
-                if (ymd.length === 3) parts[0] = ymd[2] + '-' + ymd[1] + '-' + ymd[0];
-              }
-              onSync(parts.join(' '));
-            }
-            setLoading(false);
-            setError(null);
-          }
-        })
+        .then(applyFeed)
         .catch((err) => {
           if (isMounted) {
             setError(err.message);
@@ -38,16 +45,24 @@ export default function LiveThreats({ onSync }) {
         });
     };
 
-    fetchData(); // Первая загрузка при монтировании
-    
-    // Автообновление каждые 10 минут (600 000 мс)
+    if (feedData && Array.isArray(feedData.cves)) {
+      applyFeed(feedData);
+    } else {
+      fetchData(); // Initial fetch only when parent has not pre-fetched feedData
+    }
+
+    // Auto-refresh every 10 minutes (600,000 ms)
     const intervalId = setInterval(fetchData, 600000);
 
     return () => {
       isMounted = false;
       clearInterval(intervalId);
+      if (hoverTimerRef.current) {
+        clearTimeout(hoverTimerRef.current);
+        hoverTimerRef.current = null;
+      }
     };
-  }, [onSync]);
+  }, [feedData, onSync]);
 
   if (loading) return <div className={styles.threatsPlaceholder}>Initializing feed...</div>;
   if (error) return <div className={styles.threatsPlaceholder}>Error: {error}</div>;
@@ -63,16 +78,25 @@ export default function LiveThreats({ onSync }) {
           rel="noopener noreferrer"
           className={styles.threatCard}
           onMouseEnter={() => {
-            window.dispatchEvent(new CustomEvent('bugterium-focus-node', {
-              detail: { 
-                id: `cve:${cve.id}`, 
-                label: cve.id,
-                cvss: cve.cvss,
-                epss: cve.epss,
-                description: cve.description,
-                url: cve.url
-              }
-            }));
+            if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
+            hoverTimerRef.current = setTimeout(() => {
+              window.dispatchEvent(new CustomEvent('bugterium-focus-node', {
+                detail: {
+                  id: `cve:${cve.id}`,
+                  label: cve.id,
+                  cvss: cve.cvss,
+                  epss: cve.epss,
+                  description: cve.description,
+                  url: cve.url
+                }
+              }));
+            }, 150);
+          }}
+          onMouseLeave={() => {
+            if (hoverTimerRef.current) {
+              clearTimeout(hoverTimerRef.current);
+              hoverTimerRef.current = null;
+            }
           }}
         >
           <div className={styles.threatHeader}>
@@ -97,3 +121,5 @@ export default function LiveThreats({ onSync }) {
     </div>
   );
 }
+
+export default React.memo(LiveThreats);

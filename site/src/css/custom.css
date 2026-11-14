@@ -14,14 +14,14 @@
 }
 
 :root {
-  /* Красная палитра (акценты, ссылки, активные элементы) */
+  /* Primary Crimson palette (accents, links, active controls) */
   --ifm-color-primary: #c00030;
-  --ifm-color-primary-dark: #e60036;
-  --ifm-color-primary-darker: #d90033;
-  --ifm-color-primary-darkest: #b3002a;
-  --ifm-color-primary-light: #ff1a50;
-  --ifm-color-primary-lighter: #ff2659;
-  --ifm-color-primary-lightest: #ff4d77;
+  --ifm-color-primary-dark: #c00030;
+  --ifm-color-primary-darker: #c00030;
+  --ifm-color-primary-darkest: #c00030;
+  --ifm-color-primary-light: #c00030;
+  --ifm-color-primary-lighter: #c00030;
+  --ifm-color-primary-lightest: #c00030;
 
   --ifm-background-color: #000000;
   --ifm-background-surface-color: #000000;
@@ -174,7 +174,7 @@ pre code {
 
 /* Links */
 a { color: #c00030; }
-a:hover { color: #ff4d77; }
+a:hover { color: #c00030; }
 
 /* Tables */
 table { border-collapse: collapse; }
@@ -223,12 +223,12 @@ pre.language-text span {
 .markdown-alert-note,
 .alert--info,
 .alert--secondary {
-  border-left-color: #00bfff !important;
-  background: #050a14 !important;
+  border-left-color: #0055ff !important;
+  background: rgba(0, 85, 255, 0.10) !important;
 }
 .markdown-alert-note .markdown-alert-title,
 .alert--info .admonitionHeading_node_modules-\@docusaurus-theme-classic-lib-theme-Admonition-Layout-styles-module {
-  color: #00bfff !important;
+  color: #0055ff !important;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.12em;
@@ -243,20 +243,20 @@ pre.language-text span {
 }
 .markdown-alert a,
 .alert a {
-  color: #00bfff !important;
+  color: #0055ff !important;
 }
 
-/* [!IMPORTANT] - Yellow (warning style) */
+/* [!IMPORTANT] - Warning Amber */
 .markdown-alert-important,
 .markdown-alert-warning,
 .alert--warning {
-  border-left-color: #ffd700 !important;
-  background: #0f0d00 !important;
+  border-left-color: #ff8800 !important;
+  background: rgba(255, 136, 0, 0.10) !important;
 }
 .markdown-alert-important .markdown-alert-title,
 .markdown-alert-warning .markdown-alert-title,
 .alert--warning .admonitionHeading_node_modules-\@docusaurus-theme-classic-lib-theme-Admonition-Layout-styles-module {
-  color: #ffd700 !important;
+  color: #ff8800 !important;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.12em;
@@ -265,7 +265,7 @@ pre.language-text span {
 .markdown-alert-important a,
 .markdown-alert-warning a,
 .alert--warning a {
-  color: #ffd700 !important;
+  color: #ff8800 !important;
 }
 /* Breadcrumbs */
 .breadcrumbs__link {
@@ -290,7 +290,7 @@ pre.language-text span {
 .markdown p a {
   color: #c00030 !important;
   text-decoration: none;
-  border-bottom: 1px solid rgba(255,0,60,0.3);
+  border-bottom: 1px solid rgba(192, 0, 48, 0.3);
 }
 .markdown a:hover,
 .markdown td a:hover,
@@ -298,7 +298,7 @@ pre.language-text span {
 .markdown li a:hover,
 .markdown p a:hover {
   border-bottom-color: #c00030;
-  background: rgba(255,0,60,0.05);
+  background: rgba(192, 0, 48, 0.05);
 }
 
 /* CAUTION - red */
@@ -332,7 +332,7 @@ pre.language-text span {
 }
 
 [data-theme='light'] ::-webkit-scrollbar-thumb {
-  background: #d5d5d5;
+  background: #e0e0e0;
 }
 [data-theme='light'] ::-webkit-scrollbar-thumb:hover {
   background: #c00030;
@@ -343,7 +343,7 @@ pre.language-text span {
   scrollbar-color: #1a1a1a transparent;
 }
 [data-theme='light'] * {
-  scrollbar-color: #d5d5d5 transparent;
+  scrollbar-color: #e0e0e0 transparent;
 }
 
 /* Center the day/night toggle */
@@ -370,7 +370,7 @@ button[class*='toggleButton'] {
   --mm-border: #e0e0e0;
   --mm-text: #1a1a1a;
   --mm-text-dim: #666666;
-  --mm-red: #c00030; /* ?????? */
+  --mm-red: #c00030; /* Primary Crimson */
   --mm-orange: #ff8800;
 }
 
@@ -460,7 +460,7 @@ button[class*='toggleButton'] {
   border-color: var(--mm-border) !important;
 }
 
-/* ??????? ???????? ??? Reference / Writeups */
+/* Left panel cards (Reference / Writeups) */
 [data-theme='light'] [class*='card'] {
   background: var(--mm-bg-elev) !important;
   border-color: var(--mm-border) !important;
@@ -472,7 +472,7 @@ button[class*='toggleButton'] {
   color: var(--mm-text-dim) !important;
 }
 
-/* ????? ? HUD */
+/* HUD Breadcrumbs */
 [data-theme='light'] .crumbs,
 [data-theme='light'] .crumbs span {
   color: var(--mm-text-dim) !important;
@@ -510,26 +510,26 @@ button[class*='toggleButton'] {
   transition: color 0.2s ease;
 }
 
-/* ??????? ???? */
+/* Light Theme */
 [data-theme='light'] .crumbs button.crumb.active {
-  color: var(--mm-text) !important; /* ?????? ??? ??????? ????? */
+  color: var(--mm-text) !important; /* Black for current lens crumb */
 }
 [data-theme='light'] .crumbs button.crumb:not(.active) {
-  color: var(--mm-text-dim) !important; /* ????? ??? ????????? */
+  color: var(--mm-text-dim) !important; /* Muted grey for parent crumbs */
 }
 [data-theme='light'] .crumbs button.crumb:not(.active):hover {
-  color: #000000 !important; /* ?????? ??? ????????? */
+  color: #000000 !important; /* Black hover on light theme */
 }
 
-/* ?????? ???? */
+/* Dark Theme */
 [data-theme='dark'] .crumbs button.crumb.active {
-  color: #ffffff !important; /* ????? ??? ??????? ????? */
+  color: #ffffff !important; /* White for current lens crumb */
 }
 [data-theme='dark'] .crumbs button.crumb:not(.active) {
-  color: #666666 !important; /* ????? ??? ????????? */
+  color: #6a6a6a !important; /* Muted grey for parent crumbs */
 }
 [data-theme='dark'] .crumbs button.crumb:not(.active):hover {
-  color: #ffffff !important; /* ????? ??? ????????? */
+  color: #ffffff !important; /* White hover on dark theme */
 }
 
 
@@ -559,7 +559,7 @@ button[class*='toggleButton'] {
 }
 
 .crumbs button.crumb.active {
-  max-width: none; /* ??????? ????? ?????? ????? ????????? */
+  max-width: none; /* Active crumb may span full text */
 }
 
 
@@ -571,7 +571,7 @@ button[class*='toggleButton'] {
   color: var(--mm-text) !important;
 }
 
-/* ???????????? CVE */
+/* CVE Highlighting */
 [data-theme='light'] [class*='threatId'] {
   color: var(--mm-red) !important;
 }
@@ -656,7 +656,7 @@ button[class*='toggleButton'] svg {
   transition: transform 0.3s ease !important;
 }
 
-/* ?????? ????: ????? ?????? */
+/* Dark Theme: White Toggle Icon */
 [data-theme='dark'] button[class*='toggleButton'] {
   color: #ffffff !important;
 }
@@ -664,7 +664,7 @@ button[class*='toggleButton'] svg {
   transform: rotate(45deg) !important;
 }
 
-/* ??????? ????: ?????? ?????? */
+/* Light Theme: Black Toggle Icon */
 [data-theme='light'] button[class*='toggleButton'] {
   color: #000000 !important;
 }
@@ -675,7 +675,7 @@ button[class*='toggleButton'] svg {
 
 /* === CVSS SIZE AND ALIGNMENT FIX === */
 [class*='threatCvss'] {
-  font-size: inherit !important; /* ????? ?????? ?? ???????? (threatHeader) */
+  font-size: inherit !important; /* Inherit font size from parent (threatHeader) */
   line-height: 1 !important;
   display: flex !important;
   align-items: center !important;
@@ -690,7 +690,7 @@ button[class*='toggleButton'] svg {
 
 /* === CVE DESC SIZE MATCH CARD DESC === */
 [class*='threatDesc'] {
-  font-size: 12px !important; /* ????? ??, ??? ? cardDesc */
+  font-size: 12px !important; /* Match cardDesc font size */
   font-family: 'JetBrains Mono', monospace !important;
   line-height: 1.4 !important;
   color: var(--mm-text-dim) !important;
@@ -699,7 +699,7 @@ button[class*='toggleButton'] svg {
 
 /* === DARK THEME: CVE DESC COLOR FIX === */
 [data-theme='dark'] [class*='threatDesc'] {
-  color: #a0a0a0 !important;
+  color: #888888 !important;
 }
 
 
@@ -731,7 +731,7 @@ button[class*='toggleButton'] svg {
 [data-theme='light'] .brand-prefix,
 [data-theme='light'] .status,
 [data-theme='light'] .custom-nav-info {
-  color: #c00030 !important; /* ?????? */
+  color: #c00030 !important; /* Primary Crimson */
 }
 
 [data-theme='light'] a:hover,
@@ -774,20 +774,20 @@ button[class*='toggleButton'] svg {
 
 
 /* === FIX BRAND PREFIX & STATUS COLORS === */
-/* ??????? ???? */
+/* Light Theme */
 [data-theme='light'] .brand-prefix {
-  color: var(--mm-text) !important; /* ?????? BUGTERIUM */
+  color: var(--mm-text) !important; /* Black BUGTERIUM */
 }
 [data-theme='light'] .status {
-  color: var(--mm-text) !important; /* ?????? ??????? */
+  color: var(--mm-text) !important; /* Black status */
 }
 
-/* ?????? ???? */
+/* Dark Theme */
 [data-theme='dark'] .brand-prefix {
-  color: var(--mm-text-dim) !important; /* ????? BUGTERIUM */
+  color: var(--mm-text-dim) !important; /* Grey BUGTERIUM */
 }
 [data-theme='dark'] .status {
-  color: var(--mm-text-dim) !important; /* ????? ??????? */
+  color: var(--mm-text-dim) !important; /* Grey status */
 }
 
 
@@ -795,7 +795,7 @@ button[class*='toggleButton'] svg {
 .hud .brand-prefix,
 .hud .brand .brand-prefix,
 .hud .status {
-  color: #888888 !important; /* ??????????? ????? */
+  color: #888888 !important; /* Neutral grey */
 }
 
 
@@ -816,15 +816,15 @@ button[class*='toggleButton'] svg {
 /* === GLOBAL WINE RED OVERRIDE === */
 :root {
   --ifm-color-primary: #c00030 !important;
-  --ifm-color-primary-dark: #a00028 !important;
-  --ifm-color-primary-darker: #900020 !important;
-  --ifm-color-primary-darkest: #800018 !important;
-  --ifm-color-primary-light: #d00038 !important;
-  --ifm-color-primary-lighter: #e00040 !important;
-  --ifm-color-primary-lightest: #f00048 !important;
+  --ifm-color-primary-dark: #c00030 !important;
+  --ifm-color-primary-darker: #c00030 !important;
+  --ifm-color-primary-darkest: #c00030 !important;
+  --ifm-color-primary-light: #c00030 !important;
+  --ifm-color-primary-lighter: #c00030 !important;
+  --ifm-color-primary-lightest: #c00030 !important;
 }
 
-/* ????????????? ??? ???? ?????????, ??? ????? ???????? #c00030 */
+/* Force Wine Red across all active navigation items and breadcrumbs */
 [data-theme='light'] .navbar__link--active,
 [data-theme='light'] .navbar__brand,
 [data-theme='light'] .menu__link--active,
@@ -951,11 +951,12 @@ button[class*='toggleButton'] svg {
 [data-theme='light'] .markdown-alert-note,
 [data-theme='light'] .alert--info,
 [data-theme='light'] .alert--secondary {
-  border-left-color: #00bfff !important;
+  border-left-color: #0055ff !important;
+  background: rgba(0, 85, 255, 0.05) !important;
 }
 [data-theme='light'] .markdown-alert-note .markdown-alert-title,
 [data-theme='light'] .alert--info .admonitionHeading_node_modules-\@docusaurus-theme-classic-lib-theme-Admonition-Layout-styles-module {
-  color: #00bfff !important;
+  color: #0055ff !important;
 }
 [data-theme='light'] .markdown-alert p,
 [data-theme='light'] .alert p {
@@ -963,22 +964,23 @@ button[class*='toggleButton'] svg {
 }
 [data-theme='light'] .markdown-alert a,
 [data-theme='light'] .alert a {
-  color: #00bfff !important;
+  color: #0055ff !important;
 }
 [data-theme='light'] .markdown-alert-important,
 [data-theme='light'] .markdown-alert-warning,
 [data-theme='light'] .alert--warning {
-  border-left-color: #ffd700 !important;
+  border-left-color: #ff8800 !important;
+  background: rgba(255, 136, 0, 0.05) !important;
 }
 [data-theme='light'] .markdown-alert-important .markdown-alert-title,
 [data-theme='light'] .markdown-alert-warning .markdown-alert-title,
 [data-theme='light'] .alert--warning .admonitionHeading_node_modules-\@docusaurus-theme-classic-lib-theme-Admonition-Layout-styles-module {
-  color: #ffd700 !important;
+  color: #ff8800 !important;
 }
 [data-theme='light'] .markdown-alert-important a,
 [data-theme='light'] .markdown-alert-warning a,
 [data-theme='light'] .alert--warning a {
-  color: #ffd700 !important;
+  color: #ff8800 !important;
 }
 [data-theme='light'] .markdown-alert-caution {
   border-left-color: var(--mm-red) !important;
@@ -1347,110 +1349,7 @@ button[class*='copyButton'] svg {
 [data-theme='light'] pre .token.variable {
   color: #a855f7 !important;
 }
-/* === DIMMED PURPLE OVERRIDE === */
-/* Приглушенный фиолетовый для светлой темы */
-[data-theme='light'] pre,
-[data-theme='light'] pre code,
-[data-theme='light'] pre span,
-[data-theme='light'] pre div,
-[data-theme='light'] pre .token,
-[data-theme='light'] pre .token-line,
-[data-theme='light'] pre .token.plain,
-[data-theme='light'] pre .token.comment,
-[data-theme='light'] pre .token.keyword,
-[data-theme='light'] pre .token.string,
-[data-theme='light'] pre .token.function,
-[data-theme='light'] pre .token.operator,
-[data-theme='light'] pre .token.punctuation,
-[data-theme='light'] pre .token.property,
-[data-theme='light'] pre .token.attr-name,
-[data-theme='light'] pre .token.number,
-[data-theme='light'] pre .token.boolean,
-[data-theme='light'] pre .token.builtin,
-[data-theme='light'] pre .token.variable,
-[data-theme='light'] pre .token.class-name,
-[data-theme='light'] pre .token.regex,
-[data-theme='light'] pre .token.important {
-  color: #8e44ad !important;
-}
-
-/* Приглушенный фиолетовый для темной темы */
-[data-theme='dark'] pre,
-[data-theme='dark'] pre code,
-[data-theme='dark'] pre span,
-[data-theme='dark'] pre div,
-[data-theme='dark'] pre .token,
-[data-theme='dark'] pre .token-line,
-[data-theme='dark'] pre .token.plain,
-[data-theme='dark'] pre .token.comment,
-[data-theme='dark'] pre .token.keyword,
-[data-theme='dark'] pre .token.string,
-[data-theme='dark'] pre .token.function,
-[data-theme='dark'] pre .token.operator,
-[data-theme='dark'] pre .token.punctuation,
-[data-theme='dark'] pre .token.property,
-[data-theme='dark'] pre .token.attr-name,
-[data-theme='dark'] pre .token.number,
-[data-theme='dark'] pre .token.boolean,
-[data-theme='dark'] pre .token.builtin,
-[data-theme='dark'] pre .token.variable,
-[data-theme='dark'] pre .token.class-name,
-[data-theme='dark'] pre .token.regex,
-[data-theme='dark'] pre .token.important {
-  color: #9b59b6 !important;
-}
-/* === DIMMED PURPLE OVERRIDE V2 === */
-/* Более глубокий фиолетовый для светлой темы */
-[data-theme='light'] pre,
-[data-theme='light'] pre code,
-[data-theme='light'] pre span,
-[data-theme='light'] pre div,
-[data-theme='light'] pre .token,
-[data-theme='light'] pre .token-line,
-[data-theme='light'] pre .token.plain,
-[data-theme='light'] pre .token.comment,
-[data-theme='light'] pre .token.keyword,
-[data-theme='light'] pre .token.string,
-[data-theme='light'] pre .token.function,
-[data-theme='light'] pre .token.operator,
-[data-theme='light'] pre .token.punctuation,
-[data-theme='light'] pre .token.property,
-[data-theme='light'] pre .token.attr-name,
-[data-theme='light'] pre .token.number,
-[data-theme='light'] pre .token.boolean,
-[data-theme='light'] pre .token.builtin,
-[data-theme='light'] pre .token.variable,
-[data-theme='light'] pre .token.class-name,
-[data-theme='light'] pre .token.regex,
-[data-theme='light'] pre .token.important {
-  color: #7d3c98 !important; /* Темный сливовый */
-}
-
-/* Более глубокий фиолетовый для темной темы */
-[data-theme='dark'] pre,
-[data-theme='dark'] pre code,
-[data-theme='dark'] pre span,
-[data-theme='dark'] pre div,
-[data-theme='dark'] pre .token,
-[data-theme='dark'] pre .token-line,
-[data-theme='dark'] pre .token.plain,
-[data-theme='dark'] pre .token.comment,
-[data-theme='dark'] pre .token.keyword,
-[data-theme='dark'] pre .token.string,
-[data-theme='dark'] pre .token.function,
-[data-theme='dark'] pre .token.operator,
-[data-theme='dark'] pre .token.punctuation,
-[data-theme='dark'] pre .token.property,
-[data-theme='dark'] pre .token.attr-name,
-[data-theme='dark'] pre .token.number,
-[data-theme='dark'] pre .token.boolean,
-[data-theme='dark'] pre .token.builtin,
-[data-theme='dark'] pre .token.variable,
-[data-theme='dark'] pre .token.class-name,
-[data-theme='dark'] pre .token.regex,
-[data-theme='dark'] pre .token.important {
-  color: #8e44ad !important; /* Средний сливовый */
-}
+/* Overridden code-block purple rules removed to preserve Canonical #a855f7 (Dark) and #c00030 (Light) */
 /* === RESTORE WINE RED IN LIGHT THEME === */
 [data-theme='light'] pre,
 [data-theme='light'] pre code,
@@ -1474,7 +1373,7 @@ button[class*='copyButton'] svg {
 [data-theme='light'] pre .token.class-name,
 [data-theme='light'] pre .token.regex,
 [data-theme='light'] pre .token.important {
-  color: #c00030 !important; /* Винный */
+  color: #c00030 !important; /* Primary Crimson */
 }
 
 /* === RESTORE SIDEBAR BORDER IN LIGHT THEME (V2) === */
@@ -1491,29 +1390,29 @@ button[class*='copyButton'] svg {
   padding: 16px !important;
 }
 /* Light Theme */
-[data-theme='light'] .markdown-alert-note { background: rgba(0, 191, 255, 0.05) !important; border-left-color: #00bfff !important; }
-[data-theme='light'] .markdown-alert-important { background: rgba(255, 215, 0, 0.05) !important; border-left-color: #ffd700 !important; }
+[data-theme='light'] .markdown-alert-note { background: rgba(0, 85, 255, 0.05) !important; border-left-color: #0055ff !important; }
+[data-theme='light'] .markdown-alert-important { background: rgba(255, 136, 0, 0.05) !important; border-left-color: #ff8800 !important; }
 [data-theme='light'] .markdown-alert-caution { background: rgba(192, 0, 48, 0.05) !important; border-left-color: #c00030 !important; }
 /* Dark Theme */
-[data-theme='dark'] .markdown-alert-note { background: rgba(0, 191, 255, 0.1) !important; border-left-color: #00bfff !important; }
-[data-theme='dark'] .markdown-alert-important { background: rgba(255, 215, 0, 0.1) !important; border-left-color: #ffd700 !important; }
+[data-theme='dark'] .markdown-alert-note { background: rgba(0, 85, 255, 0.1) !important; border-left-color: #0055ff !important; }
+[data-theme='dark'] .markdown-alert-important { background: rgba(255, 136, 0, 0.1) !important; border-left-color: #ff8800 !important; }
 [data-theme='dark'] .markdown-alert-caution { background: rgba(192, 0, 48, 0.1) !important; border-left-color: #c00030 !important; }
 /* === MATCH ALERT ICONS TO HEADER COLORS === */
-/* NOTE (Синий) */
+/* NOTE (Notice Blue) */
 .markdown-alert-note .markdown-alert-title svg,
 .markdown-alert-note .markdown-alert-title svg path {
-  fill: #00bfff !important;
-  color: #00bfff !important;
+  fill: #0055ff !important;
+  color: #0055ff !important;
 }
 
-/* IMPORTANT (Желтый) */
+/* IMPORTANT (Warning Amber) */
 .markdown-alert-important .markdown-alert-title svg,
 .markdown-alert-important .markdown-alert-title svg path {
-  fill: #ffd700 !important;
-  color: #ffd700 !important;
+  fill: #ff8800 !important;
+  color: #ff8800 !important;
 }
 
-/* CAUTION (Винный) */
+/* CAUTION (Primary Crimson) */
 .markdown-alert-caution .markdown-alert-title svg,
 .markdown-alert-caution .markdown-alert-title svg path {
   fill: #c00030 !important;
@@ -1523,23 +1422,23 @@ button[class*='copyButton'] svg {
 /* === ALERT TITLE ALIGNMENT (FIXED) === */
 .markdown-alert-title {
   display: flex !important;
-  align-items: center !important; /* Центрируем текст и иконку по вертикали */
+  align-items: center !important; /* Vertically center icon and text */
 }
 
 .markdown-alert-title svg {
-  margin-right: 8px !important; /* Отступ между иконкой и текстом */
-  position: static !important;  /* Убираем любые сдвиги */
+  margin-right: 8px !important; /* Space between icon and text */
+  position: static !important;  /* Clear positional offsets */
   top: auto !important;
   display: block !important;
   flex-shrink: 0 !important;
 }
 
-/* На всякий случай выравниваем сам текст */
+/* Normalize line height for alert title */
 .markdown-alert-title {
   line-height: 1 !important;
 }
 /* === ALERT VERTICAL SPACING === */
-/* Поднимаем заголовок: уменьшаем верхний паддинг контейнера и делаем отступ снизу */
+/* Tighten top padding on header and keep bottom spacing */
 .markdown-alert {
   padding-top: 8px !important;
 }
@@ -1547,7 +1446,7 @@ button[class*='copyButton'] svg {
   margin-bottom: 12px !important;
 }
 
-/* Опускаем описание */
+/* Offset alert description spacing */
 .markdown-alert p {
   margin-top: 4px !important;
   margin-bottom: 0 !important;
@@ -1556,18 +1455,18 @@ button[class*='copyButton'] svg {
 /* === SHIFT ONLY ALERT DESCRIPTION DOWN === */
 .markdown-alert p:not(.markdown-alert-title) {
   position: relative !important;
-  top: 8px !important; /* Сдвигаем вниз только текст описания */
+  top: 8px !important; /* Shift description paragraph down slightly */
 }
 
 /* === CENTER NOTE TITLE TEXT (MOVE TEXT ONLY) === */
 .markdown-alert-note .markdown-alert-title {
   display: flex !important;
   align-items: center !important;
-  padding-top: 2px !important; /* Сдвигаем текст вниз на 2px */
+  padding-top: 2px !important; /* Nudge title text down 2px */
 }
 
 .markdown-alert-note .markdown-alert-title svg {
-  margin-top: -2px !important; /* Компенсируем сдвиг, возвращая иконку на место */
+  margin-top: -2px !important; /* Compensate SVG alignment against text nudge */
   position: relative !important;
 }
 /* === NOTE: STANDARD BLUE OVERRIDE === */
@@ -1603,7 +1502,7 @@ button[class*='copyButton'] svg {
 }
 /* Light Theme Meta-block (blockquote) fix */
 [data-theme='light'] .markdown blockquote {
-  background: #f4f4f4 !important;
+  background: #f5f5f5 !important;
   border-left: 2px solid #c00030 !important;
 }
 /* Inline Code - Wine Red on both themes */
@@ -1616,7 +1515,7 @@ button[class*='copyButton'] svg {
   border-bottom-color: rgba(255, 136, 0, 0.3) !important;
 }
 .markdown a:hover {
-  color: #ffaa33 !important;
+  color: #ff8800 !important;
   border-bottom-color: #ff8800 !important;
 }
 /* Reverse-engineered Link Hover Fix (Both Themes) */
@@ -1654,7 +1553,7 @@ button[class*='copyButton'] svg {
 }
 /* Fix LIVE THREATS line color on light theme (override #1a1a1a) */
 [data-theme='light'] [class*='threatsHeader'] {
-  border-bottom-color: #d1d5db !important;
+  border-bottom-color: #e0e0e0 !important;
 }
 /* Align LIVE THREATS line with CVE cards (account for scrollbar) */
 [class*='threatsHeader'] {

@@ -10,7 +10,7 @@ that ties the technique to authorized offensive engagements.
 
 > [!CAUTION]
 > Authorized use only. All material is provided for educational purposes and authorized testing.<br>
-> See [../SECURITY.md](../SECURITY.md) for the full policy.
+> See [SECURITY.md](../SECURITY.md) for the full policy.
 ## Scope
 
 - OSINT methodology: collection planning, source evaluation, verification.
@@ -25,9 +25,9 @@ that ties the technique to authorized offensive engagements.
 |---|-------------|-------|-------|
 | 01 | [OSINT Methodology](./01%20OSINT%20Methodology/) | 4 | Collection planning, source evaluation, verification |
 | 02 | [People Search](./02%20People%20Search/) | 4 | Identity resolution, social media, public records |
-| 03 | [Infrastructure OSINT](./03%20Infrastructure%20OSINT/) | 0 | Domains, certificates, DNS, cloud assets, Shodan/Censys |
-| 04 | [Social Media and Content](./04%20Social%20Media%20and%20Content/) | 0 | Platform-specific collection, geolocation, media forensics |
-| 05 | [Corporate and Business OSINT](./05%20Corporate%20and%20Business%20OSINT/) | 0 | Corporate registries, filings, employee mapping, supply chain |
+| 03 | [Infrastructure OSINT](./03%20Infrastructure%20OSINT/) | 4 | Domains, certificates, DNS, cloud assets, Shodan/Censys |
+| 04 | [Social Media and Content](./04%20Social%20Media%20and%20Content/) | 4 | Platform-specific collection, geolocation, media forensics |
+| 05 | [Corporate and Business OSINT](./05%20Corporate%20and%20Business%20OSINT/) | 5 | Corporate registries, filings, employee mapping, supply chain |
 
 ## Format
 
@@ -63,15 +63,6 @@ OSINT, so the exam-notes section is replaced by legal notes.
 - [CLOUD](../CLOUD/) - cloud security and asset discovery.
 - [INFORMATION_SECURITY](../INFORMATION_SECURITY/) - governance, risk, compliance.
 - CTI (planned) - threat intelligence that consumes OSINT sources.
-
-## Authorized Use Only
-
-The techniques in this category are for authorized security testing,
-CTF environments, and educational purposes only. Do not use them against
-people or systems you do not own or have explicit written permission to
-investigate. OSINT collection about individuals may be subject to privacy
-law in your jurisdiction (GDPR, CCPA, and others). See SECURITY.md in the
-repository root.
 
 ## References
 

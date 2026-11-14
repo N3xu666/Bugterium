@@ -17,11 +17,11 @@ Every technique is framed against a GCP primitive (IAM, Service Accounts, Cloud 
 
 | # | File | Format |
 |---|------|--------|
-| 01 | GCP Fundamentals | done |
-| 02 | IAM and Service Account Attacks | done |
-| 03 | Cloud Storage Attacks | done |
-| 04 | GCE and Compute Attacks | done |
-| 05 | GCP Defense and Detection | done |
+| 01 | [GCP Fundamentals](./01%20GCP%20Fundamentals.md) | done |
+| 02 | [IAM and Service Account Attacks](./02%20IAM%20and%20Service%20Account%20Attacks.md) | done |
+| 03 | [Cloud Storage Attacks](./03%20Cloud%20Storage%20Attacks.md) | done |
+| 04 | [GCE and Compute Attacks](./04%20GCE%20and%20Compute%20Attacks.md) | done |
+| 05 | [GCP Defense and Detection](./05%20GCP%20Defense%20and%20Detection.md) | done |
 
 ## Format
 
@@ -36,15 +36,15 @@ This subcategory supports preparation for:
 - Google Cloud Professional Cloud Architect
 - CompTIA Security+
 
-See CERTIFICATIONS.md in the CLOUD category root for the full mapping across the CLOUD category.
+See [../CERTIFICATIONS.md](../CERTIFICATIONS.md) in the CLOUD category root for the full mapping across the CLOUD category.
 
 ## Related
 
 - [01 AWS](../01%20AWS/)
 - [02 Azure](../02%20Azure/)
-- 04 Kubernetes-Cloud (planned)
-- 05 Serverless (planned)
-- 06 IaC (planned)
+- [04 Kubernetes-Cloud](../04%20Kubernetes-Cloud/)
+- [05 Serverless](../05%20Serverless/)
+- [06 IaC](../06%20IaC/)
 
 ## Authorized Use Only
 

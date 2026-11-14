@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 
 const buildAssuranceClaims = (snapshot, isLive) => {
   const blocked403 = snapshot?.security_metrics?.blocked_403 ?? 0;
@@ -110,31 +110,34 @@ const buildAssuranceClaims = (snapshot, isLive) => {
 
 const getStatusColor = (status) => {
   if (status === 'ALERT') return '#c00030';
-  if (status === 'STALE' || status === 'FALLBACK' || status === 'WARN') return '#ff8c00';
-  return '#00ff66';
+  if (status === 'STALE' || status === 'FALLBACK' || status === 'WARN') return 'var(--warn)';
+  return 'var(--mitre)';
 };
 
-export default function AssuranceView({ snapshot = null, isLive = false }) {
+function AssuranceView({ snapshot = null, isLive = false }) {
   const [selectedClaim, setSelectedClaim] = useState(null);
-  const claims = buildAssuranceClaims(snapshot, isLive);
-  const healthyCount = claims.filter((c) => ['VERIFIED', 'ENFORCED', 'ACTIVE'].includes(c.status)).length;
+  const claims = useMemo(() => buildAssuranceClaims(snapshot, isLive), [snapshot, isLive]);
+  const healthyCount = useMemo(
+    () => claims.filter((c) => ['VERIFIED', 'ENFORCED', 'ACTIVE'].includes(c.status)).length,
+    [claims]
+  );
   const app5xx = snapshot?.errors_5xx?.app_5xx ?? 0;
   const isStale = Boolean(snapshot?.meta?.stale);
 
   const summaryStatus = !isLive
-    ? { label: 'OFFLINE FALLBACK', color: '#ff8c00' }
+    ? { label: 'OFFLINE FALLBACK', color: 'var(--warn)' }
     : app5xx > 0
       ? { label: `APP 5XX ALERT (${app5xx})`, color: '#c00030' }
       : isStale
-        ? { label: 'SNAPSHOT STALE', color: '#ff8c00' }
-        : { label: 'ALL GATES GREEN', color: '#00ff66' };
+        ? { label: 'SNAPSHOT STALE', color: 'var(--warn)' }
+        : { label: 'ALL GATES GREEN', color: 'var(--mitre)' };
 
   return (
     <div style={{
       width: '100%',
       height: '100%',
-      backgroundColor: '#000000',
-      color: '#d7d7d7',
+      backgroundColor: 'var(--bg)',
+      color: 'var(--fg)',
       fontFamily: 'JetBrains Mono, monospace',
       display: 'flex',
       flexDirection: 'column',
@@ -147,7 +150,7 @@ export default function AssuranceView({ snapshot = null, isLive = false }) {
         display: 'flex',
         justifyContent: 'space-between',
         alignItems: 'center',
-        borderBottom: '1px solid #1a1a1a',
+        borderBottom: '1px solid var(--line)',
         paddingBottom: '12px',
         marginBottom: '14px',
         flexShrink: 0
@@ -156,13 +159,13 @@ export default function AssuranceView({ snapshot = null, isLive = false }) {
           <span style={{ color: '#c00030', fontWeight: 'bold', fontSize: '13px', letterSpacing: '0.08em' }}>
             [ ASSURANCE &amp; VERIFIED CLAIMS ]
           </span>
-          <span style={{ fontSize: '10px', color: '#6a6a6a', border: '1px solid #282828', padding: '2px 6px' }}>
+          <span style={{ fontSize: '10px', color: 'var(--dim)', border: '1px solid var(--line-strong)', padding: '2px 6px' }}>
             CONTRACT V2 VERIFICATION ENGINE
           </span>
         </div>
 
-        <div style={{ display: 'flex', gap: '15px', fontSize: '11px', color: '#888888' }}>
-          <div>ENFORCED CONTROLS: <span style={{ color: '#00ff66', fontWeight: 'bold' }}>{healthyCount} / {claims.length}</span></div>
+        <div style={{ display: 'flex', gap: '15px', fontSize: '11px', color: 'var(--text-base)' }}>
+          <div>ENFORCED CONTROLS: <span style={{ color: 'var(--mitre)', fontWeight: 'bold' }}>{healthyCount} / {claims.length}</span></div>
           <div>STATUS: <span style={{ color: summaryStatus.color, fontWeight: 'bold' }}>{summaryStatus.label}</span></div>
         </div>
       </div>
@@ -187,8 +190,8 @@ export default function AssuranceView({ snapshot = null, isLive = false }) {
               key={item.id}
               onClick={() => setSelectedClaim(item)}
               style={{
-                backgroundColor: isSelected ? '#1a1a1a' : '#0a0a0a',
-                border: isSelected ? '1px solid #c00030' : '1px solid #1a1a1a',
+                backgroundColor: isSelected ? 'var(--line)' : 'var(--bg-elev)',
+                border: isSelected ? '1px solid #c00030' : '1px solid var(--line)',
                 padding: '12px 14px',
                 cursor: 'pointer',
                 transition: 'all 0.15s',
@@ -199,9 +202,9 @@ export default function AssuranceView({ snapshot = null, isLive = false }) {
             >
               <div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-                  <span style={{ color: '#ff8c00', fontSize: '11px', fontWeight: 'bold' }}>{item.id}</span>
+                  <span style={{ color: 'var(--warn)', fontSize: '11px', fontWeight: 'bold' }}>{item.id}</span>
                   <div style={{ display: 'flex', gap: '6px' }}>
-                    <span style={{ fontSize: '9px', color: isCritical ? '#c00030' : '#888888', border: '1px solid #282828', padding: '1px 4px' }}>
+                    <span style={{ fontSize: '9px', color: isCritical ? '#c00030' : 'var(--text-base)', border: '1px solid var(--line-strong)', padding: '1px 4px' }}>
                       {item.severity}
                     </span>
                     <span style={{ fontSize: '9px', color: statusColor, border: `1px solid ${statusColor}`, padding: '1px 5px', fontWeight: 'bold' }}>
@@ -210,16 +213,16 @@ export default function AssuranceView({ snapshot = null, isLive = false }) {
                   </div>
                 </div>
 
-                <div style={{ fontSize: '12px', fontWeight: 'bold', color: '#ffffff', marginBottom: '6px' }}>
+                <div style={{ fontSize: '12px', fontWeight: 'bold', color: 'var(--fg-bright)', marginBottom: '6px' }}>
                   {item.title}
                 </div>
 
-                <div style={{ fontSize: '10px', color: '#888888', lineHeight: '1.4', marginBottom: '8px' }}>
+                <div style={{ fontSize: '10px', color: 'var(--text-base)', lineHeight: '1.4', marginBottom: '8px' }}>
                   {item.claim}
                 </div>
               </div>
 
-              <div style={{ borderTop: '1px solid #1a1a1a', paddingTop: '6px', fontSize: '9px', color: '#6a6a6a', display: 'flex', justifyContent: 'space-between', gap: '8px' }}>
+              <div style={{ borderTop: '1px solid var(--line)', paddingTop: '6px', fontSize: '9px', color: 'var(--dim)', display: 'flex', justifyContent: 'space-between', gap: '8px' }}>
                 <span>{item.category}</span>
                 <span>{item.lastChecked}</span>
               </div>
@@ -234,12 +237,12 @@ export default function AssuranceView({ snapshot = null, isLive = false }) {
           marginTop: '10px',
           padding: '12px 16px',
           border: '1px solid #c00030',
-          backgroundColor: '#0a0a0a',
+          backgroundColor: 'var(--bg-elev)',
           flexShrink: 0
         }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <span style={{ color: '#ffffff', fontWeight: 'bold', fontSize: '13px' }}>
+              <span style={{ color: 'var(--fg-bright)', fontWeight: 'bold', fontSize: '13px' }}>
                 [{selectedClaim.id}] {selectedClaim.title}
               </span>
               <span style={{ fontSize: '10px', color: getStatusColor(selectedClaim.status), border: `1px solid ${getStatusColor(selectedClaim.status)}`, padding: '1px 6px' }}>
@@ -250,8 +253,8 @@ export default function AssuranceView({ snapshot = null, isLive = false }) {
               onClick={() => setSelectedClaim(null)}
               style={{
                 background: 'transparent',
-                border: '1px solid #282828',
-                color: '#d7d7d7',
+                border: '1px solid var(--line-strong)',
+                color: 'var(--fg)',
                 cursor: 'pointer',
                 fontFamily: 'inherit',
                 padding: '2px 8px'
@@ -263,12 +266,12 @@ export default function AssuranceView({ snapshot = null, isLive = false }) {
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', fontSize: '11px' }}>
             <div>
-              <div style={{ color: '#888888', marginBottom: '2px', fontSize: '10px' }}>ENFORCED CONTROL:</div>
-              <div style={{ color: '#d7d7d7' }}>{selectedClaim.control}</div>
+              <div style={{ color: 'var(--text-base)', marginBottom: '2px', fontSize: '10px' }}>ENFORCED CONTROL:</div>
+              <div style={{ color: 'var(--fg)' }}>{selectedClaim.control}</div>
             </div>
             <div>
-              <div style={{ color: '#888888', marginBottom: '2px', fontSize: '10px' }}>PROOF OF VERIFICATION:</div>
-              <div style={{ color: '#00ff66' }}>{selectedClaim.evidence}</div>
+              <div style={{ color: 'var(--text-base)', marginBottom: '2px', fontSize: '10px' }}>PROOF OF VERIFICATION:</div>
+              <div style={{ color: 'var(--mitre)' }}>{selectedClaim.evidence}</div>
             </div>
           </div>
         </div>
@@ -276,3 +279,5 @@ export default function AssuranceView({ snapshot = null, isLive = false }) {
     </div>
   );
 }
+
+export default React.memo(AssuranceView);

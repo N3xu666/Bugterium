@@ -37,9 +37,9 @@ web application security.
 
 ## Related Categories
 
-- APPLICATIONS/ - web application security, including API security.
-- INFRASTRUCTURE/ - infrastructure attack and defense (AD, Windows, Linux, network).
-- CLOUD/ - cloud security (planned).
+- [APPLICATIONS](../APPLICATIONS/) - web, mobile, and API security reference.
+- [INFRASTRUCTURE](../INFRASTRUCTURE/) - infrastructure attack and defense (AD, Windows, Linux, network).
+- [CLOUD](../CLOUD/) - cloud security reference (AWS, Azure, GCP, Kubernetes, Serverless, IaC).
 
 ## Authorized Use Only
 

@@ -10,6 +10,7 @@ Writeups available in three languages: `01 Az`, `02 En`, `03 Ru`.
 
 | # | Machine | Az | En | Ru |
 |---|---------|-----|-----|-----|
+| - | none published yet (all active on HTB) | - | - | - |
 
 ## Completed (Writeups Pending)
 

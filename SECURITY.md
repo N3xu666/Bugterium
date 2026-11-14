@@ -2,8 +2,12 @@
 
 ## About This Repository
 
-Bugterium is a personal collection of penetration testing walkthroughs, tools,
-methodologies, and cheatsheets, published as a portfolio and community resource.
+Bugterium is an enterprise-style personal cybersecurity platform comprising
+trilingual Hack The Box walkthroughs (`WRITEUPS/`), nine security reference
+categories, methodology guides, custom pentest tooling (`tools/`), a Docusaurus
+knowledge portal with the interactive **Lenses Hub** (`site/` at `bugterium.pages.dev`),
+Cloudflare Workers services (`app/bff`, `app/security-monitor`, `app/frontend`),
+and Cloudflare Pages Infrastructure as Code (`terraform/`).
 
 All published walkthroughs are **fully masked**: flags, passwords, hashes, tokens,
 and session identifiers are replaced with placeholders before publication.
@@ -55,6 +59,8 @@ from this code, contact: huseynovirshad@gmail.com
 - Leaked local file paths, usernames, or other PII
 - CI/CD workflow weaknesses (script injection, unpinned actions, excessive permissions)
 - Broken masking that reveals a real value through placeholders
+- Vulnerabilities in `site/` (XSS, DOM injection, unsafe SVG/HTML rendering) or `app/` (`app/bff` authentication, session, RBAC, D1 query injection; `app/security-monitor` telemetry handling or PII leakage)
+- Sensitive credentials or state leakage in `terraform/` definitions or Worker configs
 
 ---
 
@@ -85,7 +91,9 @@ No bug bounty is offered. Credit will be given in the advisory if desired.
 **In scope:**
 
 - This repository and its entire git history
-- Published walkthroughs, cheatsheets, methodology docs
+- Published walkthroughs (`WRITEUPS/`), reference categories (`APPLICATIONS/`, `INFRASTRUCTURE/`, `AI/`, `NETWORKS/`, `ANONYMITY-PRIVACY-OPSEC/`, `CLOUD/`, `VIRTUALIZATION/`, `INFORMATION_SECURITY/`, `OSINT/`), methodology docs, and `tools/`
+- Web platform components: `site/` (portal & Lenses Hub UI), `app/` (`bff`, `security-monitor`, `frontend`), and `terraform/` IaC definitions
+- Live hosted portal and edge endpoints (`bugterium.pages.dev` and associated Cloudflare Workers APIs) within non-disruptive testing boundaries
 - GitHub Actions workflows in `.github/workflows/`
 - README files and inline links
 

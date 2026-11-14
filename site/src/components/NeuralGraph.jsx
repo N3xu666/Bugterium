@@ -1,10 +1,14 @@
-﻿import { useEffect, useRef, useState, useMemo, useCallback } from 'react';
+﻿import React, { useEffect, useRef, useState, useMemo, useCallback } from 'react';
 import ForceGraph3D from 'react-force-graph-3d';
 import * as THREE from 'three';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
 import '../css/neural-graph.css';
 
 const HOME = '_home';
+const RENDERER_CONFIG = { antialias: true, alpha: true };
+
+const getIsLightTheme = () =>
+  typeof document !== 'undefined' && document.documentElement?.dataset?.theme === 'light';
 
 const GEO = new THREE.SphereGeometry(1, 16, 16);
 const MAT = {
@@ -16,14 +20,17 @@ const MAT = {
   mitre: new THREE.MeshBasicMaterial({ color: new THREE.Color(0x00ff66).multiplyScalar(2.2) }),
 };
 
+const _dir = new THREE.Vector3();
+const _up = new THREE.Vector3(0, 1, 0);
+
 const linkPoints = [];
-for (let i = 0; i <= 30; i++) {
-  const t = i / 30;
-  // Толщина: 0.3 у основания, 0.05 в середине
+for (let i = 0; i <= 12; i++) {
+  const t = i / 12;
+  // Taper thickness: 0.3 at base endpoints, 0.05 at midpoint
   const radius = 0.3 - Math.sin(t * Math.PI) * 0.25;
   linkPoints.push(new THREE.Vector2(radius, t - 0.5));
 }
-const LINK_GEO = new THREE.LatheGeometry(linkPoints, 32);
+const LINK_GEO = new THREE.LatheGeometry(linkPoints, 8);
 const LINK_SHADER_VERT = `
   uniform float uThicknessZoneA;
   uniform float uThicknessZoneB;
@@ -53,6 +60,7 @@ const LINK_SHADER_VERT = `
 const LINK_SHADER_FRAG = `
   uniform vec3 uColorA;
   uniform vec3 uColorB;
+  uniform vec3 uMidColor;
   uniform float uOpacity;
   uniform float uColorZoneA;
   uniform float uColorZoneB;
@@ -65,50 +73,95 @@ const LINK_SHADER_FRAG = `
     float tA = smoothstep(uColorZoneA, uColorZoneA + uTransitionZone, vDistFromA);
     float tB = smoothstep(uColorZoneB, uColorZoneB + uTransitionZone, vDistFromB);
     float peak = min(tA, tB);
-    vec3 col = mix(base, vec3(1.0), peak);
+    vec3 col = mix(base, uMidColor, peak);
     gl_FragColor = vec4(col, uOpacity);
   }
 `;
-const getNodeColorHex = (node) => {
-  if (!node) return 0xa855f7;
-  if (node.id === HOME) return 0xffffff;
-  if (node.group === 'tool') return 0xff0000;
-  if (node.group === 'cve') return 0xff8c00;
-  if (node.group === 'mitre') return 0x00ff66;
-  if (node.is_index) return 0xffffff;
+const getNodeRole = (node) => {
+  if (!node) return 'file';
+  if (node.id === HOME || node.is_index) return 'home';
+  if (node.group === 'tool' || node.group === 'cve' || node.group === 'mitre') return node.group;
+  return 'file';
+};
+const roleToHex = (role, isLight = false) => {
+  if (role === 'home') return isLight ? 0x1a1a1a : 0xffffff;
+  if (role === 'tool') return isLight ? 0xc00030 : 0xff0000;
+  if (role === 'cve') return isLight ? 0xff8800 : 0xff8c00;
+  if (role === 'mitre') return isLight ? 0x007700 : 0x00ff66;
   return 0xa855f7;
 };
+const hexToRole = (hex) => {
+  if (hex === 0xffffff || hex === 0x1a1a1a) return 'home';
+  if (hex === 0xff0000 || hex === 0xc00030) return 'tool';
+  if (hex === 0xff8c00 || hex === 0xff8800) return 'cve';
+  if (hex === 0x00ff66 || hex === 0x007700) return 'mitre';
+  return 'file';
+};
+const getNodeColorHex = (node, isLight = false) => roleToHex(getNodeRole(node), isLight);
+
 const sphereRadiusFor = (hex) => {
-  if (hex === 0xff0000) return 2.5;
-  if (hex === 0xff8c00) return 2.0;
-  if (hex === 0x00ff66) return 2.2;
+  if (hex === 0xff0000 || hex === 0xc00030) return 2.5;
+  if (hex === 0xff8c00 || hex === 0xff8800) return 2.0;
+  if (hex === 0x00ff66 || hex === 0x007700) return 2.2;
   if (hex === 0xa855f7) return 1.4;
-  if (hex === 0xffffff) return 2.2;
+  if (hex === 0xffffff || hex === 0x1a1a1a) return 2.2;
   return 1.4;
 };
 const thicknessBoostFor = (hex) => {
-  if (hex === 0xff0000) return 3.0;
-  if (hex === 0xff8c00) return 5.7;
-  if (hex === 0x00ff66) return 4.5;
+  if (hex === 0xff0000 || hex === 0xc00030) return 3.0;
+  if (hex === 0xff8c00 || hex === 0xff8800) return 5.7;
+  if (hex === 0x00ff66 || hex === 0x007700) return 4.5;
   if (hex === 0xa855f7) return 2.5;
-  if (hex === 0xffffff) return 2.0;
+  if (hex === 0xffffff || hex === 0x1a1a1a) return 2.0;
   return 4.0;
 };
 const thicknessZoneFor = (hex) => {
   return 1.5 + (thicknessBoostFor(hex) - 4.0) * 0.3;
 };
 const LINK_MAT_CACHE = new Map();
-const getLinkMaterial = (srcHex, tgtHex) => {
-  const key = srcHex.toString(16).padStart(6, '0') + '_' + tgtHex.toString(16).padStart(6, '0');
+const applyLinkMatTheme = (mat, isLight) => {
+  const { srcRole, tgtRole } = mat.userData;
+  const bright = (srcRole === 'tool' || tgtRole === 'tool' || srcRole === 'cve' || tgtRole === 'cve');
+  const isFullOpacity = (srcRole === 'file' && tgtRole === 'tool') || (srcRole === 'tool' && tgtRole === 'file') || srcRole === 'cve' || tgtRole === 'cve';
+  mat.uniforms.uColorA.value.setHex(roleToHex(srcRole, isLight));
+  mat.uniforms.uColorB.value.setHex(roleToHex(tgtRole, isLight));
+  mat.uniforms.uMidColor.value.setHex(isLight ? 0x1a1a1a : 0xffffff);
+  mat.uniforms.uOpacity.value = isFullOpacity ? 1.0 : (bright ? 0.85 : (isLight ? 0.45 : 0.35));
+};
+const applyThemeToMaterials = (isLight) => {
+  if (isLight) {
+    MAT.home.color.setHex(0x1a1a1a);
+    MAT.index.color.setHex(0x1a1a1a);
+    MAT.file.color.setHex(0xa855f7);
+    MAT.tool.color.setHex(0xc00030);
+    MAT.cve.color.setHex(0xff8800);
+    MAT.mitre.color.setHex(0x007700);
+  } else {
+    MAT.home.color.setHex(0xffffff);
+    MAT.index.color.setHex(0xffffff);
+    MAT.file.color.setHex(0xa855f7).multiplyScalar(2.5);
+    MAT.tool.color.setHex(0xff0000).multiplyScalar(2.5);
+    MAT.cve.color.setHex(0xff8c00);
+    MAT.mitre.color.setHex(0x00ff66).multiplyScalar(2.2);
+  }
+  for (const mat of LINK_MAT_CACHE.values()) {
+    applyLinkMatTheme(mat, isLight);
+  }
+};
+const getLinkMaterial = (srcHex, tgtHex, isLight = false) => {
+  const key = srcHex * 0x1000000 + tgtHex;
   let mat = LINK_MAT_CACHE.get(key);
   if (mat) return mat;
-  const bright = (srcHex === 0xff0000 || tgtHex === 0xff0000 || srcHex === 0xff8c00 || tgtHex === 0xff8c00);
-  const isFullOpacity = (srcHex === 0xa855f7 && tgtHex === 0xff0000) || (srcHex === 0xff0000 && tgtHex === 0xa855f7) || srcHex === 0xff8c00 || tgtHex === 0xff8c00;
+  const srcRole = hexToRole(srcHex);
+  const tgtRole = hexToRole(tgtHex);
+  const bright = (srcRole === 'tool' || tgtRole === 'tool' || srcRole === 'cve' || tgtRole === 'cve');
+  const isFullOpacity = (srcRole === 'file' && tgtRole === 'tool') || (srcRole === 'tool' && tgtRole === 'file') || srcRole === 'cve' || tgtRole === 'cve';
   mat = new THREE.ShaderMaterial({
     uniforms: {
       uColorA: { value: new THREE.Color(srcHex) },
       uColorB: { value: new THREE.Color(tgtHex) },
-      uOpacity: { value: isFullOpacity ? 1.0 : (bright ? 0.85 : 0.35) },
+      uMidColor: { value: new THREE.Color(isLight ? 0x1a1a1a : 0xffffff) },
+      uOpacity: { value: isFullOpacity ? 1.0 : (bright ? 0.85 : (isLight ? 0.45 : 0.35)) },
       uColorZoneA: { value: sphereRadiusFor(srcHex) + 3.0 },
       uColorZoneB: { value: sphereRadiusFor(tgtHex) + 3.0 },
       uTransitionZone: { value: 8.0 },
@@ -124,6 +177,8 @@ const getLinkMaterial = (srcHex, tgtHex) => {
     transparent: true,
     side: THREE.DoubleSide,
   });
+  mat.userData.srcRole = srcRole;
+  mat.userData.tgtRole = tgtRole;
   LINK_MAT_CACHE.set(key, mat);
   return mat;
 };
@@ -136,15 +191,15 @@ const getLinkObject = () => {
   return mesh;
 };
 
-const updateLinkPosition = (obj, { start, end }, link, nodeMap) => {
+const updateLinkPosition = (obj, { start, end }, link, nodeMap, isLight = false) => {
   if (!obj) return false;
   const srcNode = typeof link.source === 'object' ? link.source : (nodeMap ? nodeMap.get(link.source) : null);
   const tgtNode = typeof link.target === 'object' ? link.target : (nodeMap ? nodeMap.get(link.target) : null);
-  const curSrcHex = getNodeColorHex(srcNode);
-  const curTgtHex = getNodeColorHex(tgtNode);
-  const curKey = curSrcHex.toString(16).padStart(6, '0') + '_' + curTgtHex.toString(16).padStart(6, '0');
+  const curSrcHex = getNodeColorHex(srcNode, isLight);
+  const curTgtHex = getNodeColorHex(tgtNode, isLight);
+  const curKey = curSrcHex * 0x1000000 + curTgtHex;
   if (obj.userData.matKey !== curKey) {
-    obj.material = getLinkMaterial(curSrcHex, curTgtHex);
+    obj.material = getLinkMaterial(curSrcHex, curTgtHex, isLight);
     obj.userData.matKey = curKey;
   }
 
@@ -157,18 +212,17 @@ const updateLinkPosition = (obj, { start, end }, link, nodeMap) => {
   const dx = e.x - s.x;
   const dy = e.y - s.y;
   const dz = e.z - s.z;
-  const length = Math.sqrt(dx*dx + dy*dy + dz*dz);
-  
+  const length = Math.sqrt(dx * dx + dy * dy + dz * dz);
+
   if (length === 0) return false;
 
-  obj.position.set(s.x + dx/2, s.y + dy/2, s.z + dz/2);
+  obj.position.set(s.x + dx / 2, s.y + dy / 2, s.z + dz / 2);
   obj.scale.set(1, length, 1);
 
-  const dir = new THREE.Vector3(dx, dy, dz).normalize();
-  const up = new THREE.Vector3(0, 1, 0);
-  obj.quaternion.setFromUnitVectors(up, dir);
+  _dir.set(dx, dy, dz).normalize();
+  obj.quaternion.setFromUnitVectors(_up, _dir);
 
-  return true; // КРИТИЧЕСКИ ВАЖНО: говорим библиотеке, что мы всё обновили
+  return true; // Tell library position/transform was handled manually
 };
 
 const getNodeObject = (node) => {
@@ -309,7 +363,7 @@ const getCameraDistance = (nodeCount, embedded = false) => {
   return Math.min(maxD, Math.max(minD, Math.round(mult * Math.sqrt(nodeCount) + offset)));
 };
 
-export default function NeuralGraph({ onReady, embedded = false, onBackToLenses }) {
+function NeuralGraph({ onReady, embedded = false, onBackToLenses }) {
   const [graph, setGraph] = useState(null);
   const [focus, setFocus] = useState(null);
   const [activeFilter, setActiveFilter] = useState(null);
@@ -317,13 +371,14 @@ export default function NeuralGraph({ onReady, embedded = false, onBackToLenses 
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const searchInputRef = useRef(null);
-  
+
   const [size, setSize] = useState({ width: 0, height: 0 });
   const [error, setError] = useState(null);
   const [isReady, setIsReady] = useState(false);
   const [fading, setFading] = useState(false);
   const fadeTimerRef = useRef(null);
   const searchTimerRef = useRef(null);
+  const isLightRef = useRef(getIsLightTheme());
 
   useEffect(() => {
     return () => {
@@ -331,7 +386,7 @@ export default function NeuralGraph({ onReady, embedded = false, onBackToLenses 
       if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
     };
   }, []);
-  
+
   useEffect(() => {
     if (isReady && onReady) onReady();
   }, [isReady, onReady]);
@@ -340,9 +395,26 @@ export default function NeuralGraph({ onReady, embedded = false, onBackToLenses 
   const containerRef = useRef(null);
   const graphRef = useRef(null);
   const bloomAddedRef = useRef(false);
+  const bloomPassRef = useRef(null);
   const nodeMapRef = useRef(new Map());
   const graphDataRef = useRef(graph);
   const tickCount = useRef(0);
+
+  useEffect(() => {
+    const syncTheme = () => {
+      const light = getIsLightTheme();
+      isLightRef.current = light;
+      applyThemeToMaterials(light);
+      if (bloomPassRef.current) {
+        bloomPassRef.current.enabled = !light;
+        if (!light) bloomPassRef.current.strength = 0.35;
+      }
+    };
+    syncTheme();
+    const observer = new MutationObserver(syncTheme);
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+    return () => observer.disconnect();
+  }, []);
 
   useEffect(() => {
     graphDataRef.current = graph;
@@ -354,7 +426,7 @@ export default function NeuralGraph({ onReady, embedded = false, onBackToLenses 
   }, [graph]);
 
   const updateLinkPositionCb = useCallback((obj, params, link) => {
-    return updateLinkPosition(obj, params, link, nodeMapRef.current);
+    return updateLinkPosition(obj, params, link, nodeMapRef.current, isLightRef.current);
   }, []);
 
   useEffect(() => {
@@ -420,7 +492,7 @@ export default function NeuralGraph({ onReady, embedded = false, onBackToLenses 
     if (!fg || visible.nodes.length === 0) return;
     if (fg.controls()) fg.controls().zoomSpeed = 2.5;
     
-    // Физика: раздвигаем узлы
+    // Physics: spread nodes apart
     if (fg.d3Force('charge')) fg.d3Force('charge').strength(-30);
     if (fg.d3Force('link')) fg.d3Force('link').distance(10);
     tickCount.current = 0;
@@ -431,10 +503,19 @@ export default function NeuralGraph({ onReady, embedded = false, onBackToLenses 
       const w = el ? el.clientWidth : 800;
       const h = el ? el.clientHeight : 600;
       const bloomPass = new UnrealBloomPass(new THREE.Vector2(w, h), 0.35, 0.5, 0.3);
+      bloomPass.enabled = !isLightRef.current;
+      bloomPassRef.current = bloomPass;
       fg.postProcessingComposer().addPass(bloomPass);
       bloomAddedRef.current = true;
     }
   }, [visible]);
+
+  useEffect(() => {
+    if (bloomPassRef.current && graphRef.current && size.width > 0 && size.height > 0) {
+      const pr = graphRef.current.renderer()?.getPixelRatio?.() || 1;
+      bloomPassRef.current.setSize(size.width * pr, size.height * pr);
+    }
+  }, [size]);
 
   const focusOnNode = useCallback((node) => {
     if (!node) return;
@@ -497,7 +578,7 @@ export default function NeuralGraph({ onReady, embedded = false, onBackToLenses 
       if (node) {
         focusOnNode(node);
       } else {
-        // Уязвимость из живого фида CISA KEV еще не задокументирована в репозитории
+        // Live CISA KEV vulnerability not yet documented in local repository
         setSelectedNode({
           id: e.detail.id,
           label: e.detail.label,
@@ -542,7 +623,7 @@ export default function NeuralGraph({ onReady, embedded = false, onBackToLenses 
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [focus, graph, goTo, isSearchOpen, searchQuery, selectedNode]);
+  }, [focus, graph, goTo, isSearchOpen, searchQuery, selectedNode, resetCameraToFocus]);
 
   const handleNodeClick = useCallback((node) => {
     if (!node) return;
@@ -576,9 +657,29 @@ export default function NeuralGraph({ onReady, embedded = false, onBackToLenses 
     ? 'LOAD ERROR: ' + error
     : visible.nodes.length + ' nodes / ' + visible.links.length + ' links' ;
 
-  const toggleFilter = (type) => {
+  const cameraPos = useMemo(() => ({ x: 0, y: 0, z: embedded ? 1280 : 1000 }), [embedded]);
+
+  const toggleFilter = useCallback((type) => {
     setActiveFilter(prev => prev === type ? null : type);
-  };
+  }, []);
+
+  const handleNodeHover = useCallback((node) => {
+    document.body.style.cursor = node ? 'pointer' : 'default';
+  }, []);
+
+  const handleEngineTick = useCallback(() => {
+    tickCount.current++;
+    if (tickCount.current === 40) setAlphaDecay(0.015);
+    else if (tickCount.current === 80) setAlphaDecay(0.06);
+    else if (tickCount.current === 120) setAlphaDecay(0.15);
+  }, []);
+
+  const handleEngineStop = useCallback(() => {
+    setIsReady(true);
+    setFading(true);
+    if (fadeTimerRef.current) clearTimeout(fadeTimerRef.current);
+    fadeTimerRef.current = setTimeout(() => setFading(false), 500);
+  }, []);
 
   return (
     <div 
@@ -745,10 +846,10 @@ export default function NeuralGraph({ onReady, embedded = false, onBackToLenses 
             <div className="entity-title">{selectedNode.label || selectedNode.id}</div>
             
             {selectedNode.unmapped && (
-              <div style={{ background: 'rgba(255, 140, 0, 0.12)', border: '1px solid rgba(255, 140, 0, 0.4)', padding: '8px 10px', fontSize: '10px', color: '#ffb347', lineHeight: '1.4' }}>
+              <div style={{ background: 'rgba(255, 140, 0, 0.12)', border: '1px solid var(--warn)', padding: '8px 10px', fontSize: '10px', color: 'var(--warn)', lineHeight: '1.4' }}>
                 <div style={{ fontWeight: '600', marginBottom: '4px' }}>⚡ CISA KEV ACTIVE ZERO-DAY</div>
                 <div>{selectedNode.description || 'Active exploited in the wild.'}</div>
-                <div style={{ marginTop: '4px', color: '#aaaaaa', fontStyle: 'italic' }}>
+                <div style={{ marginTop: '4px', color: 'var(--dim)', fontStyle: 'italic' }}>
                   Not yet in local repository writeups.
                 </div>
               </div>
@@ -811,48 +912,27 @@ export default function NeuralGraph({ onReady, embedded = false, onBackToLenses 
 
         {size.width > 0 && visible.nodes.length > 0 && (
           <ForceGraph3D
-            style={{ opacity: 1 }}
             ref={graphRef}
             graphData={visible}
             width={size.width}
             height={size.height}
-            backgroundColor="#000000"
-            cameraPosition={{ x: 0, y: 0, z: embedded ? 1280 : 1000 }}
+            backgroundColor="rgba(0,0,0,0)"
+            cameraPosition={cameraPos}
             nodeThreeObject={getNodeObject}
             nodeLabel={getNodeLabel}
             onNodeClick={handleNodeClick}
-            onNodeHover={(node) => {
-              if (!node) { document.body.style.cursor = 'default'; return; }
-              document.body.style.cursor = 'pointer';
-            }}
-            linkColor={(l) => {
-              const tgt = typeof l.target === 'object' ? l.target : { id: l.target };
-              const src = typeof l.source === 'object' ? l.source : { id: l.source };
-              if (tgt.group === 'tool' || src.group === 'tool') return '#c00030';
-              if (tgt.group === 'cve' || src.group === 'cve') return '#ff8c00';
-              if (tgt.group === 'mitre' || src.group === 'mitre') return '#00ff66';
-              return '#aaaaaa';
-            }}
+            onNodeHover={handleNodeHover}
             linkThreeObject={getLinkObject}
             linkPositionUpdate={updateLinkPositionCb}
-            rendererConfig={{ antialias: true, alpha: false }}
+            rendererConfig={RENDERER_CONFIG}
             showNavInfo={false}
             warmupTicks={0}
             cooldownTicks={200}
+            cooldownTime={4000}
             d3AlphaDecay={alphaDecay}
             d3VelocityDecay={velocityDecay}
-            onEngineTick={() => {
-              tickCount.current++;
-              if (tickCount.current === 40) setAlphaDecay(0.015);
-              else if (tickCount.current === 80) setAlphaDecay(0.06);
-              else if (tickCount.current === 120) setAlphaDecay(0.15);
-            }}
-            onEngineStop={() => {
-              setIsReady(true);
-              setFading(true);
-              if (fadeTimerRef.current) clearTimeout(fadeTimerRef.current);
-              fadeTimerRef.current = setTimeout(() => setFading(false), 500);
-            }}
+            onEngineTick={handleEngineTick}
+            onEngineStop={handleEngineStop}
           />
         )}
         
@@ -873,3 +953,5 @@ export default function NeuralGraph({ onReady, embedded = false, onBackToLenses 
     </div>
   );
 }
+
+export default React.memo(NeuralGraph);

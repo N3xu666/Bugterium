@@ -30,14 +30,14 @@ This subcategory maps to the following certifications:
 - **ISO 27001 LI/LA** - Clause 5.2 (Information security policy),
   Annex A.5.1 (Policies for information security).
 
-See `../../CERTIFICATIONS.md` for the full matrix.
+See [../CERTIFICATIONS.md](../CERTIFICATIONS.md) for the full matrix.
 
 ## Related
 
 - [01 Governance and Frameworks](../01%20Governance%20and%20Frameworks/)
 - [02 Risk Management](../02%20Risk%20Management/)
 - [03 Compliance and Regulation](../03%20Compliance%20and%20Regulation/)
-- 05 Security Awareness and Training (planned subcategory)
+- [05 Security Awareness and Training](../05%20Security%20Awareness%20and%20Training/)
 
 ## References
 

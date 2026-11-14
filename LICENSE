@@ -1,27 +1,35 @@
 ﻿Scope:
 
 This LICENSE (CC BY-NC 4.0) applies to DOCUMENTATION in this repository:
-walkthroughs (WRITEUPS/01 Hack The Box/), web application security reference (APPLICATIONS/01 Web/),
+walkthroughs (WRITEUPS/01 Hack The Box/), security reference categories
+(APPLICATIONS/, INFRASTRUCTURE/, AI/, NETWORKS/, ANONYMITY-PRIVACY-OPSEC/,
+CLOUD/, VIRTUALIZATION/, INFORMATION_SECURITY/, OSINT/), methodology/OSCP-Reporting.md,
 METHODOLOGY.md, CHEATSHEET.md, README.md, SECURITY.md, and other
-prose/Markdown content.
+prose/Markdown content across root, tools/, site/, and app/.
 
-SOURCE CODE is licensed separately under the MIT License.
-The MIT license applies to all executable source files in this repository,
-including:
+SOURCE CODE AND INFRASTRUCTURE definitions are licensed separately under the MIT License.
+The MIT license applies to all executable source files, web components,
+and infrastructure configurations in this repository, including:
 
-  - tools/**/*.py, tools/**/*.go, tools/**/*.sh  (see tools/LICENSE)
-  - check.ps1, mask.ps1, audit.ps1, tests/run-tests.ps1  (root scripts)
+  - tools/**/*.py, tools/**/*.go, tools/**/*.sh         (see tools/LICENSE)
+  - site/src/**, site/scripts/**, site/*.js              (Docusaurus portal & Lenses Hub)
+  - app/bff/**, app/frontend/**, app/security-monitor/** (Workers, API, SPA)
+  - terraform/**/*.tf, terraform/**/*.tfvars.example     (Cloudflare Pages IaC)
+  - check.ps1, mask.ps1, audit.ps1, check-anchors.ps1,
+    check-tables.ps1, audit-session.ps1, writeup-spec.psd1,
+    tests/run-tests.ps1                                  (automation & verification scripts)
 
 If a file is ambiguous, the following rule applies:
-  - .md, .txt, .rst                      -> CC BY-NC 4.0 (this license)
-  - .py, .go, .sh, .ps1                  -> MIT
-  - .yml (GitHub Actions workflows)      -> MIT
+  - .md, .txt, .rst                                      -> CC BY-NC 4.0 (this license)
+  - .py, .go, .sh, .ps1, .psd1                           -> MIT
+  - .js, .jsx, .ts, .tsx, .css, .tf, .toml               -> MIT
+  - .yml (GitHub Actions workflows)                      -> MIT
 
 Note: the rule above is file-type based. Markdown documentation inside
-tools/ (e.g. tools/python/README.md, tools/python/Session_Report.md) is
-CC BY-NC 4.0 like all other .md files in this repository, even though the
-source code in the same directories is MIT. tools/LICENSE contains the
-MIT text that applies to source code under tools/.
+tools/, site/, or app/ (e.g. tools/python/README.md, site/README.md,
+app/frontend/README.md) is CC BY-NC 4.0 like all other .md files in this
+repository, even though the source code in the same directories is MIT.
+tools/LICENSE contains the MIT text that applies to source code across the repository.
 
 ---
 Attribution-NonCommercial 4.0 International (CC BY-NC 4.0)

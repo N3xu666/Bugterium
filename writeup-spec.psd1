@@ -130,7 +130,7 @@
 
         # Backslash-escaped markdown (from chat/notepad paste). check.ps1 [13/23] fails.
         BackslashEscapePattern = '^\\[#\[\]_()]'
-        DocsRoots = @('APPLICATIONS', 'INFRASTRUCTURE', 'ANONYMITY-PRIVACY-OPSEC', 'AI', 'NETWORKS', 'tools')
+        DocsRoots = @('APPLICATIONS', 'INFRASTRUCTURE', 'ANONYMITY-PRIVACY-OPSEC', 'AI', 'NETWORKS', 'CLOUD', 'VIRTUALIZATION', 'INFORMATION_SECURITY', 'OSINT', 'tools')
 
         # Chat citation markers. check.ps1 [16/23] fails, [23/23] WARNs.
         CitationPattern = 'citation:\d+'

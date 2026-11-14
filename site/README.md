@@ -1,43 +1,37 @@
-# Website
+# Bugterium Web Portal & Lenses Hub (`site/`)
 
-This website is built using [Docusaurus](https://docusaurus.io/), a modern static website generator.
+Docusaurus 3 static documentation portal and interactive **Lenses Hub** 3D situational awareness suite deployed at [bugterium.pages.dev](https://bugterium.pages.dev).
 
-## Installation
+## Architecture
 
-```bash
-npm install
-```
+- **Docs Sync Pipeline (`scripts/build-docs.py`)**: Converts `WRITEUPS/` and all 9 reference categories into `site/docs/` with Docusaurus frontmatter, category metadata (`_category_.json`), Pro Labs PDF certificate thumbnails, and normalized internal/GitHub cross-links.
+- **Knowledge Graph Indexer (`scripts/sync-content.py`)**: Extracts tool, NVD CVE, MITRE ATT&CK, and MITRE ATLAS entities across all generated documentation into `site/static/graph.json`.
+- **Lenses Hub (`src/components/`)**: Interactive operational telemetry and knowledge graph lenses (`NeuralGraph.jsx`, `SecurityGlobe.jsx`, `LensesHub.jsx`, `AttackMatrix.jsx`, `AssuranceView.jsx`, `LiveThreats.jsx`) adhering to the Bugterium canonical Light/Dark palette.
 
-**Note**: feel free to use the package manager of your choice.
+## Safe Local Development
 
-## Local Development
+Always install dependencies without executing arbitrary lifecycle scripts when adding new packages, and bind local servers strictly to loopback (`127.0.0.1`) rather than `0.0.0.0`:
 
-```bash
-npm run start
-```
+```powershell
+# Initial clean install from lockfile
+npm ci
 
-This command starts a local development server and opens up a browser window. Most changes are reflected live without having to restart the server.
+# Adding new packages safely
+npm install <package> --ignore-scripts
 
-## Build
-
-```bash
+# Build docs graph and static bundle
 npm run build
+
+# Serve locally on loopback only
+npx docusaurus serve --host 127.0.0.1
 ```
 
-This command generates static content into the `build` directory and can be served using any static contents hosting service.
+On Windows PowerShell when running `npm start`, set `$env:WATCHPACK_POLLING='true'` if file watchers hit handle limits.
 
 ## Deployment
 
-Using SSH:
+Production builds are automated via [../.github/workflows/deploy-site.yml](../.github/workflows/deploy-site.yml) after `Validate` succeeds on `main`. The pipeline enforces `npm audit --omit=dev --audit-level=high` before running `npm run build` and deploying `site/build/` to Cloudflare Pages (`bugterium`).
 
-```bash
-USE_SSH=true npm run deploy
-```
+## License
 
-Not using SSH:
-
-```bash
-GIT_USER=<Your GitHub username> npm run deploy
-```
-
-If you are using GitHub Pages for hosting, this command is a convenient way to build the website and push to the `gh-pages` branch.
+Source code and configuration in `site/` (`.js`, `.jsx`, `.py`, `.css`) are licensed under the MIT License ([../tools/LICENSE](../tools/LICENSE)). Generated Markdown documentation and knowledge base content remain under CC BY-NC 4.0 ([../LICENSE](../LICENSE)).

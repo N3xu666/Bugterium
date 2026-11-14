@@ -1,12 +1,15 @@
 #!/usr/bin/env python3
 import json
+import os
 import re
 import shutil
+import urllib.parse as _u
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 SITE = ROOT / "site"
 DST = SITE / "docs"
+REPO_WEB = "https://github.com/N3xu666/Bugterium"
 
 REF = [
     ("APPLICATIONS", "applications", "Applications", 1),
@@ -99,7 +102,7 @@ def fm(sl, ti, de, po, ht):
     L.append("---")
     return "\n".join(L) + "\n\n"
 
-def pf(md, dd, pos=None):
+def pf(md, dd, pos=None, inst="", doc_root=None, src_map=None, src_to_out=None, src_to_route=None):
     raw = md.read_text(encoding="utf-8-sig").replace("\r\n", "\n").replace("\r", "\n")
     if md.name.lower() == "readme.md":
         raw = raw.replace("](./Certificate.pdf)", f"](/pdf/{dd.name}/Certificate.pdf)")
@@ -109,9 +112,19 @@ def pf(md, dd, pos=None):
         if _pdf_link in raw:
             _thumb = f'<a href="{_pdf_url}" target="_blank"><img src="{_pdf_png}" width="200" alt="Certificate" style="display:inline-block;border:1px solid #1a1a1a;vertical-align:top"></a>'
             raw = raw.replace(_pdf_link, _thumb)
-        raw = _fix_folder_refs(raw)
         t = h1(raw) or "Overview"
-        (dd / "index.md").write_text(fm(None, t, "", 0, False) + raw, encoding="utf-8")
+        out_path = (dd / "index.md").resolve()
+        out_path.write_text(fm(None, t, "", 0, False) + raw, encoding="utf-8")
+        if src_map is not None:
+            src_map[out_path] = md.resolve()
+        if src_to_out is not None:
+            src_to_out[md.resolve()] = out_path
+            src_to_out[md.parent.resolve()] = out_path
+        if src_to_route is not None and doc_root is not None:
+            dpath = dd.relative_to(doc_root).as_posix()
+            route = f"/{inst}/{dpath}/" if dpath != "." else f"/{inst}/"
+            src_to_route[md.resolve()] = route
+            src_to_route[md.parent.resolve()] = route
         return
     h = h1(raw) or md.stem
     ti = re.sub(r"\s*\(HTB\)\s*$", "", h).strip() or md.stem
@@ -127,9 +140,18 @@ def pf(md, dd, pos=None):
         de = f"{m.get('OS','')} / {m.get('Difficulty','')} - {m.get('Result','')}".strip(" / -")
     else:
         de = para(raw)
-    (dd / f"{sl}.md").write_text(fm(sl, ti, de, pos, True) + raw, encoding="utf-8")
+    out_path = (dd / f"{sl}.md").resolve()
+    out_path.write_text(fm(sl, ti, de, pos, True) + raw, encoding="utf-8")
+    if src_map is not None:
+        src_map[out_path] = md.resolve()
+    if src_to_out is not None:
+        src_to_out[md.resolve()] = out_path
+    if src_to_route is not None and doc_root is not None:
+        dpath = dd.relative_to(doc_root).as_posix()
+        route = f"/{inst}/{dpath}/{sl}" if dpath != "." else f"/{inst}/{sl}"
+        src_to_route[md.resolve()] = route
 
-def walk(src, dst, inst, root):
+def walk(src, dst, inst, root, src_map=None, src_to_out=None, src_to_route=None):
     dst.mkdir(parents=True, exist_ok=True)
     for pdf in src.glob("*.pdf"):
         _pdf_dst = SITE / "static" / "pdf" / dst.name
@@ -147,23 +169,23 @@ def walk(src, dst, inst, root):
     readmes = [f for f in files if f.name.lower() == "readme.md"]
     others = [f for f in files if f.name.lower() != "readme.md"]
     for md in readmes:
-        pf(md, dst)
+        pf(md, dst, None, inst, root, src_map, src_to_out, src_to_route)
     max_num = 0
     for md in others:
         n = num(md.name)
         if n == 999:
             max_num += 1
-            pf(md, dst, max_num)
+            pf(md, dst, max_num, inst, root, src_map, src_to_out, src_to_route)
         else:
             max_num = max(max_num, n)
-            pf(md, dst, n)
+            pf(md, dst, n, inst, root, src_map, src_to_out, src_to_route)
     for s in sorted(src.iterdir()):
         if not s.is_dir() or s.name.startswith("."):
             continue
         if s.name in LANG:
             if s.name != PREF:
                 continue
-            walk(s, dst, inst, root)
+            walk(s, dst, inst, root, src_map, src_to_out, src_to_route)
             continue
         sl, lb, po = parse(s.name)
         nd = dst / sl
@@ -172,26 +194,32 @@ def walk(src, dst, inst, root):
         if (s / "README.md").exists():
             cat["link"] = {"type": "doc", "id": f"{nd.relative_to(root).as_posix()}/index"}
         (nd / "_category_.json").write_text(json.dumps(cat, indent=2), encoding="utf-8")
-        walk(s, nd, inst, root)
+        walk(s, nd, inst, root, src_map, src_to_out, src_to_route)
 
-TOP_PUBLIC = {"SECURITY.md", "LICENSE", "CHEATSHEET.md", "METHODOLOGY.md", "CERTIFICATIONS.md"}
-TOP_MD_RE = re.compile(r"\[([^\]]*?)\]\((?:\.{1,2}/)*(?:SECURITY|CERTIFICATIONS|LICENSE|CHEATSHEET|METHODOLOGY)\.md\)")
+CODE_SECURITY_RE = re.compile(r"`(?:\.{1,2}/)+(SECURITY\.md|LICENSE|CHEATSHEET\.md|METHODOLOGY\.md)`")
 
 
-def _fix_folder_refs(text):
-    import urllib.parse as _u
-    def repl(m):
-        raw = _u.unquote(m.group(1))
-        m2 = re.match(r"^(\d+)\s+(.+?)(?:\s*\(.*?\))?$", raw)
-        if m2:
-            return f"./{slug(m2.group(2))}/"
-        return m.group(0)
-    return re.sub(r"\./((?:\d+)(?:%20|\s)+[^/)\s]+)/", repl, text)
+def _clean_link_label(text):
+    return re.sub(r"^(?:\.{1,2}/)+", "", text)
+
+
+def _github_url(target):
+    rel = target.resolve().relative_to(ROOT.resolve())
+    quoted = "/".join(_u.quote(part, safe="-._~") for part in rel.parts)
+    kind = "tree" if target.is_dir() else "blob"
+    return f"{REPO_WEB}/{kind}/main/{quoted}"
+
+
+def _doc_plugin_root(out_file):
+    rel = out_file.resolve().relative_to(DST.resolve())
+    return DST / rel.parts[0]
 
 
 def _match_name(p, siblings):
     if p in siblings:
         return p
+    if p.lower() == "readme.md" and "index.md" in siblings:
+        return "index.md"
     stripped = re.sub(r"^\d+[\s%20]+", "", p)
     if p.endswith(".md"):
         cand = slug(stripped[:-3]) + ".md"
@@ -210,17 +238,31 @@ def _match_name(p, siblings):
     return None
 
 
-def fix_links(root):
-    import urllib.parse as _u
+def _rel_doc_link(out_md, target_out, anchor):
+    if target_out.resolve() == out_md.resolve():
+        return anchor if anchor else f"./{out_md.name}"
+    rel = os.path.relpath(target_out, out_md.parent).replace("\\", "/")
+    if not rel.startswith("."):
+        rel = f"./{rel}"
+    return f"{rel}{anchor}"
+
+
+def fix_links(root, src_map, src_to_out, src_to_route):
+    repo_resolved = ROOT.resolve()
+    dst_resolved = root.resolve()
+    machine_row_re = re.compile(r"^(\|\s*\d+\s*\|\s*)([^|\[\]]+?)(\s*\|\s*.*?\|\s*\[En\]\(([^)]+)\)\s*\|\s*.*)$")
     for md in root.rglob("*.md"):
+        md_resolved = md.resolve()
+        src_md = src_map.get(md_resolved)
         content = md.read_text(encoding="utf-8")
         original = content
-        content = TOP_MD_RE.sub(r"\1", content)
+        md_plugin = _doc_plugin_root(md_resolved)
+
         def repl(m):
-            text = m.group(1)
+            text = _clean_link_label(m.group(1))
             target = m.group(2)
             if target.startswith(("http", "#", "mailto:", "/")):
-                return m.group(0)
+                return f"[{text}]({target})"
             path_part = target.split("#")[0]
             anchor = target[len(path_part):]
             try:
@@ -229,19 +271,39 @@ def fix_links(root):
                 pass
             path_part = path_part.rstrip("/")
             if not path_part:
-                return m.group(0)
-            parts = path_part.split("/")
-            if any(x in TOP_PUBLIC for x in parts):
-                return text
-            current = md.parent
+                return f"[{text}]({target})"
+
+            # 1. Exact resolution against original repo source path -> mapped Docusaurus output/route
+            if src_md is not None:
+                try:
+                    resolved_src = (src_md.parent / path_part).resolve()
+                    resolved_src.relative_to(repo_resolved)
+                except (OSError, ValueError):
+                    resolved_src = None
+                if resolved_src is not None:
+                    if resolved_src in src_to_out:
+                        target_out = src_to_out[resolved_src]
+                        if _doc_plugin_root(target_out) == md_plugin:
+                            return f"[{text}]({_rel_doc_link(md_resolved, target_out, anchor)})"
+                        return f"[{text}]({src_to_route[resolved_src]}{anchor})"
+                    if resolved_src.exists():
+                        return f"[{text}]({_github_url(resolved_src)}{anchor})"
+
+            # 2. Fallback matching within built Docusaurus tree
+            decoded_for_dst = re.sub(r"(?:^|/)02 En/", "/", path_part).lstrip("/") if "02 En/" in path_part else path_part
+            parts = decoded_for_dst.split("/")
+            current = md_resolved.parent
             ok = True
-            new_parts = []
             for p in parts:
                 if p in ("", "."):
                     continue
                 if p == "..":
                     current = current.parent
-                    new_parts.append("..")
+                    try:
+                        current.resolve().relative_to(dst_resolved)
+                    except ValueError:
+                        ok = False
+                        break
                     continue
                 try:
                     siblings = [f.name for f in current.iterdir()]
@@ -253,20 +315,34 @@ def fix_links(root):
                     ok = False
                     break
                 current = current / matched
-                new_parts.append(matched)
             if ok:
-                orig = [p for p in parts if p not in ("", ".")]
-                changed = new_parts != orig
-                if current.is_dir() and (current / "index.md").exists():
-                    if changed:
-                        return f"[{text}]({'/'.join(new_parts)}/{anchor})"
-                    return m.group(0)
-                if current.is_file():
-                    if changed:
-                        return f"[{text}]({'/'.join(new_parts)}{anchor})"
-                    return m.group(0)
+                target_out = (current / "index.md") if (current.is_dir() and (current / "index.md").exists()) else (current if current.is_file() else None)
+                if target_out is not None and _doc_plugin_root(target_out) == md_plugin:
+                    return f"[{text}]({_rel_doc_link(md_resolved, target_out, anchor)})"
             return text
-        new = re.sub(r"(?<!!)\[([^\]]+)\]\(([^)]+)\)", repl, content)
+
+        lines = content.split("\n")
+        out_lines = []
+        in_code = False
+        for ln in lines:
+            stripped = ln.lstrip()
+            if stripped.startswith("```"):
+                in_code = not in_code
+                out_lines.append(ln)
+                continue
+            if not in_code:
+                ln = CODE_SECURITY_RE.sub(
+                    lambda cm: f"[{cm.group(1)}]({REPO_WEB}/blob/main/{cm.group(1)})",
+                    ln,
+                )
+                ln = re.sub(r"(?<!!)\[([^\]]+)\]\(([^)]+)\)", repl, ln)
+                if md.name == "index.md":
+                    ln = machine_row_re.sub(
+                        lambda rm: f"{rm.group(1)}[{rm.group(2).strip()}]({rm.group(4)}){rm.group(3)}",
+                        ln,
+                    )
+            out_lines.append(ln)
+        new = "\n".join(out_lines)
         if new != original:
             md.write_text(new, encoding="utf-8")
 
@@ -274,11 +350,14 @@ def main():
     if DST.exists():
         shutil.rmtree(DST)
     DST.mkdir(parents=True)
+    src_map = {}
+    src_to_out = {}
+    src_to_route = {}
     wd = DST / "writeups"
     wd.mkdir(parents=True)
     w = ROOT / "WRITEUPS"
     if w.exists():
-        walk(w, wd, "writeups", wd)
+        walk(w, wd, "writeups", wd, src_map, src_to_out, src_to_route)
     rd = DST / "reference"
     rd.mkdir(parents=True)
     rows = []
@@ -301,8 +380,8 @@ def main():
         if (sd / "README.md").exists():
             cat["link"] = {"type": "doc", "id": f"{dn}/index"}
         (nd / "_category_.json").write_text(json.dumps(cat, indent=2), encoding="utf-8")
-        walk(sd, nd, "reference", rd)
-    fix_links(DST)
+        walk(sd, nd, "reference", rd, src_map, src_to_out, src_to_route)
+    fix_links(DST, src_map, src_to_out, src_to_route)
     t = sum(1 for _ in DST.rglob("*.md"))
     c = sum(1 for _ in DST.rglob("_category_.json"))
     print(f"Generated: {t} md, {c} categories")
