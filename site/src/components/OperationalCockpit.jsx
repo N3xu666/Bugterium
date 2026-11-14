@@ -1,4 +1,4 @@
-import React, { useState, useEffect, Suspense, lazy } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, Suspense, lazy } from 'react';
 import BrowserOnly from '@docusaurus/BrowserOnly';
 import Link from '@docusaurus/Link';
 import { useLocation, useHistory } from '@docusaurus/router';
@@ -152,9 +152,9 @@ const FALLBACK_DATA = {
 };
 
 const BASELINE_LEVEL_COLORS = {
-  normal: '#00ff66',
-  elevated: '#ff8c00',
-  spike: '#ff8800',
+  normal: 'var(--mitre)',
+  elevated: 'var(--warn)',
+  spike: 'var(--warn)',
   critical: '#c00030'
 };
 
@@ -162,26 +162,26 @@ const PROBE_FAMILY_META = {
   hex32_probe: { label: 'HEX32 PROBE', color: '#a855f7' },
   env_file: { label: 'ENV FILE LEAKS', color: '#c00030' },
   git: { label: 'GIT EXPOSURE', color: '#c00030' },
-  phpinfo: { label: 'PHPINFO PROBE', color: '#ff8c00' },
+  phpinfo: { label: 'PHPINFO PROBE', color: 'var(--warn)' },
   aws_creds: { label: 'AWS CREDENTIALS', color: '#c00030' },
   shell: { label: 'WEBSHELL PROBE', color: '#c00030' },
-  wordpress: { label: 'CMS & WORDPRESS', color: '#ff8c00' },
+  wordpress: { label: 'CMS & WORDPRESS', color: 'var(--warn)' },
   api_probe: { label: 'API EXPOSURE', color: '#a855f7' },
   db_probe: { label: 'DATABASE PROBES', color: '#a855f7' }
 };
 
 const getProbeFamilyMeta = (family) => {
-  if (!family) return { label: 'OTHER', color: '#6a6a6a' };
+  if (!family) return { label: 'OTHER', color: 'var(--dim)' };
   if (PROBE_FAMILY_META[family]) return PROBE_FAMILY_META[family];
   return { label: String(family).replace(/_/g, ' ').toUpperCase(), color: '#a855f7' };
 };
 
 const UA_FAMILY_COLORS = {
-  browser: '#00ff66',
-  crawler: '#6a6a6a',
-  automation: '#ff8c00',
+  browser: 'var(--mitre)',
+  crawler: 'var(--dim)',
+  automation: 'var(--warn)',
   scanner: '#c00030',
-  unknown: '#888888'
+  unknown: 'var(--text-base)'
 };
 
 const getPathFamily = (path) => {
@@ -189,7 +189,7 @@ const getPathFamily = (path) => {
     return { name: 'SECRET LEAK', color: '#c00030' };
   }
   if (path.includes('wp-') || path.includes('xmlrpc') || path.includes('wordpress')) {
-    return { name: 'WORDPRESS PROBE', color: '#ff8c00' };
+    return { name: 'WORDPRESS PROBE', color: 'var(--warn)' };
   }
   if (path.includes('actuator') || path.includes('api/') || path.includes('swagger')) {
     return { name: 'API EXPOSURE', color: '#a855f7' };
@@ -200,7 +200,7 @@ const getPathFamily = (path) => {
   if (path === '/[hex32]' || /^\/[0-9a-f]{32}$/i.test(path)) {
     return { name: 'HEX32 PROBE', color: '#a855f7' };
   }
-  return { name: 'SUSPICIOUS URI', color: '#6a6a6a' };
+  return { name: 'SUSPICIOUS URI', color: 'var(--dim)' };
 };
 
 const getUaCategory = (ua) => {
@@ -209,15 +209,127 @@ const getUaCategory = (ua) => {
     return { name: 'ATTACK TOOL', color: '#c00030' };
   }
   if (low.includes('python') || low.includes('curl') || low.includes('wget') || low.includes('go-http') || low.includes('axios') || low.includes('node-fetch')) {
-    return { name: 'AUTOMATION SCRIPT', color: '#ff8c00' };
+    return { name: 'AUTOMATION SCRIPT', color: 'var(--warn)' };
   }
   if (low.includes('censys') || low.includes('shodan') || low.includes('expanse') || low.includes('zgrab')) {
     return { name: 'CYBER RECON / SCANNER', color: '#a855f7' };
   }
   if (low.includes('bot') || low.includes('crawl') || low.includes('spider')) {
-    return { name: 'WEB CRAWLER', color: '#6a6a6a' };
+    return { name: 'WEB CRAWLER', color: 'var(--dim)' };
   }
-  return { name: 'UNKNOWN CLIENT', color: '#333333' };
+  return { name: 'UNKNOWN CLIENT', color: 'var(--dim)' };
+};
+
+const BOT_RE = /bot|crawl|spider|slurp|curl|wget|python|go-http|java\/|okhttp|axios|node-fetch|headless|phantom|puppet|selenium|playwright|masscan|nmap|nikto|sqlmap|zgrab|censys|shodan|expanse|nuclei|httpx|feroxbuster|gobuster|dirb|dirbuster|ffuf/i;
+const SCRAMBLE_CHARS = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ!@#$%^&*';
+
+const SyncFooter = React.memo(function SyncFooter({
+  activeLens,
+  isLive,
+  cveSync,
+  telemetrySync,
+  lensMountKey,
+  onCveTextReady,
+}) {
+  const [displayCveSync, setDisplayCveSync] = useState('0000-00-00 00:00 GMT+4');
+  const [isCveAnimating, setIsCveAnimating] = useState(false);
+  const [displayTelemetrySync, setDisplayTelemetrySync] = useState('0000-00-00 00:00 GMT+4');
+  const [isTelemetryAnimating, setIsTelemetryAnimating] = useState(false);
+
+  // Scrambler animation for CVE feed sync (Neural Port)
+  useEffect(() => {
+    if (activeLens !== 'neural-port') return;
+    if (!cveSync) {
+      setDisplayCveSync('0000-00-00 00:00 GMT+4');
+      setIsCveAnimating(true);
+      onCveTextReady(false);
+      return;
+    }
+    setDisplayCveSync('0000-00-00 00:00 GMT+4');
+    setIsCveAnimating(true);
+    onCveTextReady(false);
+    const target = cveSync;
+    let frame = 0;
+    const interval = setInterval(() => {
+      frame += 0.25;
+      const revealed = target.slice(0, Math.floor(frame));
+      const scrambled = target
+        .slice(Math.floor(frame))
+        .split('')
+        .map(() => SCRAMBLE_CHARS[Math.floor(Math.random() * SCRAMBLE_CHARS.length)])
+        .join('');
+      setDisplayCveSync(revealed + scrambled);
+      if (frame >= target.length) {
+        clearInterval(interval);
+        setDisplayCveSync(target);
+        setIsCveAnimating(false);
+        onCveTextReady(true);
+      }
+    }, 35);
+    return () => clearInterval(interval);
+  }, [cveSync, activeLens, lensMountKey, onCveTextReady]);
+
+  // Scrambler animation for Cloudflare Edge Telemetry sync (Globe, Hub)
+  useEffect(() => {
+    if (!telemetrySync) return;
+    setIsTelemetryAnimating(true);
+    const target = telemetrySync;
+    let frame = 0;
+    const interval = setInterval(() => {
+      frame += 0.35;
+      const revealed = target.slice(0, Math.floor(frame));
+      const scrambled = target
+        .slice(Math.floor(frame))
+        .split('')
+        .map(() => SCRAMBLE_CHARS[Math.floor(Math.random() * SCRAMBLE_CHARS.length)])
+        .join('');
+      setDisplayTelemetrySync(revealed + scrambled);
+      if (frame >= target.length) {
+        clearInterval(interval);
+        setDisplayTelemetrySync(target);
+        setIsTelemetryAnimating(false);
+      }
+    }, 30);
+    return () => clearInterval(interval);
+  }, [telemetrySync]);
+
+  const isNeural = activeLens === 'neural-port';
+  const label = isNeural ? 'LAST SYNC:' : (isLive ? 'LIVE SYNC:' : 'LAST SYNC:');
+  const animating = isNeural ? isCveAnimating : isTelemetryAnimating;
+
+  return (
+    <div className={styles.rightFooter} style={{ display: 'block', textAlign: 'center', width: '100%', padding: '10px 0' }}>
+      <span style={{ display: 'inline-block', position: 'relative', transform: 'translateX(-6px)', whiteSpace: 'nowrap' }}>
+        <span style={{ visibility: 'hidden', fontWeight: 'bold' }}>
+          <span>{label}</span> 0000-00-00 00:00 GMT+4
+        </span>
+        <span style={{ position: 'absolute', left: 0, top: 0 }}>
+          <span className={animating ? styles.blink : ''} style={{ color: '#c00030', fontWeight: 'bold', transition: 'opacity 0.5s ease-out' }}>
+            {label}
+          </span> {isNeural ? displayCveSync : displayTelemetrySync}
+        </span>
+      </span>
+    </div>
+  );
+});
+
+const SPECIAL_SOURCE_TAGS = {
+  T1: '[TOR]',
+  XX: '[UNKNOWN]',
+};
+
+const getSpecialSourceTag = (code) => {
+  if (!code) return null;
+  if (SPECIAL_SOURCE_TAGS[code]) return SPECIAL_SOURCE_TAGS[code];
+  const coords = countryCoords[code];
+  return Array.isArray(coords) && coords.length >= 2 ? null : '[NO GEO]';
+};
+
+const resolveFocusCoords = (code) => {
+  if (!code || code === 'XX' || code === 'T1') return null;
+  const coords = countryCoords[code];
+  if (!Array.isArray(coords) || coords.length < 2) return null;
+  return { lat: coords[0], lng: coords[1] };
 };
 
 export default function OperationalCockpit({ defaultLens = null }) {
@@ -229,17 +341,14 @@ export default function OperationalCockpit({ defaultLens = null }) {
   const [isLive, setIsLive] = useState(false);
   const [errorMsg, setErrorMsg] = useState(null);
 
-  // CVE Threat feed sync state (Нейропорт)
+  // CVE Threat feed sync state (Neural Port)
+  const [cveFeedData, setCveFeedData] = useState(null);
   const [cveSync, setCveSync] = useState(null);
-  const [displayCveSync, setDisplayCveSync] = useState('0000-00-00 00:00 GMT+4');
-  const [isCveAnimating, setIsCveAnimating] = useState(false);
   const [isGraphReady, setIsGraphReady] = useState(false);
   const [isTextReady, setIsTextReady] = useState(false);
 
-  // Cloudflare Edge telemetry sync state (Глобус, Хаб)
+  // Cloudflare Edge telemetry sync state (Globe, Hub)
   const [telemetrySync, setTelemetrySync] = useState(null);
-  const [displayTelemetrySync, setDisplayTelemetrySync] = useState('0000-00-00 00:00 GMT+4');
-  const [isTelemetryAnimating, setIsTelemetryAnimating] = useState(false);
   
   // Globe specific telemetry states
   const [viewMode, setViewMode] = useState('traffic');
@@ -255,7 +364,7 @@ export default function OperationalCockpit({ defaultLens = null }) {
     arcs: true
   });
 
-  const toggleLayer = (layerKey) => {
+  const toggleLayer = useCallback((layerKey) => {
     setLayers(prev => {
       const nextVal = !prev[layerKey];
       if (layerKey === 'threats') {
@@ -263,17 +372,15 @@ export default function OperationalCockpit({ defaultLens = null }) {
       }
       return { ...prev, [layerKey]: nextVal };
     });
-  };
+  }, []);
 
   // URL sync helper
-  const setActiveLens = (lens) => {
+  const setActiveLens = useCallback((lens) => {
     if (lens === activeLens) return;
     setActiveLensState(lens);
     if (lens === 'neural-port') {
       setIsGraphReady(false);
       setIsTextReady(false);
-      setIsCveAnimating(true);
-      setDisplayCveSync('0000-00-00 00:00 GMT+4');
       setLensMountKey(k => k + 1);
     }
     const path = lens ? `/?lens=${lens}` : '/';
@@ -288,7 +395,10 @@ export default function OperationalCockpit({ defaultLens = null }) {
       }
       window.history.pushState({}, '', url.toString());
     }
-  };
+  }, [activeLens, history]);
+
+  const handleBackToLenses = useCallback(() => setActiveLens(null), [setActiveLens]);
+  const handleGraphReady = useCallback(() => setIsGraphReady(true), []);
 
   // Sync with router location (e.g. top navbar clicks, browser Back/Forward)
   useEffect(() => {
@@ -299,8 +409,6 @@ export default function OperationalCockpit({ defaultLens = null }) {
         if (l === 'neural-port') {
           setIsGraphReady(false);
           setIsTextReady(false);
-          setIsCveAnimating(true);
-          setDisplayCveSync('0000-00-00 00:00 GMT+4');
           setLensMountKey(k => k + 1);
         }
         return l;
@@ -328,14 +436,17 @@ export default function OperationalCockpit({ defaultLens = null }) {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [activeLens, focusCountry, focusPath]);
+  }, [activeLens, focusCountry, focusPath, setActiveLens]);
 
-  // Pre-fetch CVE feed timestamp so it is immediately ready when opening Neural Port
+  // Pre-fetch CVE feed so both sync timestamp and LiveThreats list are immediately ready
   useEffect(() => {
+    let isMounted = true;
     fetch('/cve-feed.json', { cache: 'no-store' })
       .then(res => res.ok ? res.json() : null)
       .then(d => {
-        if (d && d.last_sync) {
+        if (!isMounted || !d) return;
+        setCveFeedData(d);
+        if (d.last_sync) {
           const parts = d.last_sync.split(' ');
           if (parts[0] && parts[0].includes('-')) {
             const ymd = parts[0].split('-');
@@ -345,6 +456,7 @@ export default function OperationalCockpit({ defaultLens = null }) {
         }
       })
       .catch(() => {});
+    return () => { isMounted = false; };
   }, []);
 
   // Telemetry Fetching (Cloudflare Edge Worker)
@@ -415,50 +527,6 @@ export default function OperationalCockpit({ defaultLens = null }) {
     };
   }, []);
 
-  // Scrambler animation for CVE feed sync (Neural Port)
-  useEffect(() => {
-    if (activeLens !== 'neural-port' || !cveSync) return;
-    setIsCveAnimating(true);
-    setIsTextReady(false);
-    const target = cveSync;
-    const chars = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ!@#$%^&*';
-    let frame = 0;
-    const interval = setInterval(() => {
-      frame += 0.25;
-      const revealed = target.slice(0, Math.floor(frame));
-      const scrambled = target.slice(Math.floor(frame)).split('').map(() => chars[Math.floor(Math.random() * chars.length)]).join('');
-      setDisplayCveSync(revealed + scrambled);
-      if (frame >= target.length) {
-        clearInterval(interval);
-        setDisplayCveSync(target);
-        setIsCveAnimating(false);
-        setIsTextReady(true);
-      }
-    }, 35);
-    return () => clearInterval(interval);
-  }, [cveSync, activeLens, lensMountKey]);
-
-  // Scrambler animation for Cloudflare Telemetry sync (Globe, Hub)
-  useEffect(() => {
-    if (!telemetrySync) return;
-    setIsTelemetryAnimating(true);
-    const target = telemetrySync;
-    const chars = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ!@#$%^&*';
-    let frame = 0;
-    const interval = setInterval(() => {
-      frame += 0.35;
-      const revealed = target.slice(0, Math.floor(frame));
-      const scrambled = target.slice(Math.floor(frame)).split('').map(() => chars[Math.floor(Math.random() * chars.length)]).join('');
-      setDisplayTelemetrySync(revealed + scrambled);
-      if (frame >= target.length) {
-        clearInterval(interval);
-        setDisplayTelemetrySync(target);
-        setIsTelemetryAnimating(false);
-      }
-    }, 30);
-    return () => clearInterval(interval);
-  }, [telemetrySync]);
-
   const {
     security_metrics,
     geo_data,
@@ -476,17 +544,20 @@ export default function OperationalCockpit({ defaultLens = null }) {
     ua_families
   } = data || FALLBACK_DATA;
 
-  const error5xxByCode = {};
-  if (errors_5xx && Array.isArray(errors_5xx.by_code)) {
-    errors_5xx.by_code.forEach((entry) => {
-      error5xxByCode[entry.code] = entry.classification;
-    });
-  }
+  const error5xxByCode = useMemo(() => {
+    const map = {};
+    if (errors_5xx && Array.isArray(errors_5xx.by_code)) {
+      errors_5xx.by_code.forEach((entry) => {
+        map[entry.code] = entry.classification;
+      });
+    }
+    return map;
+  }, [errors_5xx]);
 
   const renderBreakdown = (prefix, color) => {
     if (!status_breakdown) return null;
     const filtered = status_breakdown.filter(s => s.code >= prefix * 100 && s.code < (prefix + 1) * 100).sort((a, b) => a.code - b.code);
-    if (filtered.length === 0) return <div style={{ fontSize: '10px', color: '#6a6a6a', marginTop: '5px' }}>No errors</div>;
+    if (filtered.length === 0) return <div style={{ fontSize: '10px', color: 'var(--dim)', marginTop: '5px' }}>No errors</div>;
     const get5xxOriginTag = (code) => {
       if (prefix !== 5) return null;
       const classification = error5xxByCode[code];
@@ -503,11 +574,11 @@ export default function OperationalCockpit({ defaultLens = null }) {
         {filtered.map(s => {
           const originTag = s.count > 0 ? get5xxOriginTag(s.code) : null;
           return (
-            <div key={s.code} title={originTag ? originTag.title : undefined} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '11px', color: color, borderBottom: '1px solid #1a1a1a', paddingBottom: '2px', paddingLeft: '4px', paddingRight: '4px' }}>
+            <div key={s.code} title={originTag ? originTag.title : undefined} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '11px', color: color, borderBottom: '1px solid var(--line)', paddingBottom: '2px', paddingLeft: '4px', paddingRight: '4px' }}>
               <span>
                 {s.code}
                 {originTag && (
-                  <span style={{ fontSize: '8px', color: '#6a6a6a', marginLeft: '4px' }}>{originTag.tag}</span>
+                  <span style={{ fontSize: '8px', color: 'var(--dim)', marginLeft: '4px' }}>{originTag.tag}</span>
                 )}
               </span>
               <span>{s.count}</span>
@@ -518,29 +589,34 @@ export default function OperationalCockpit({ defaultLens = null }) {
     );
   };
 
-  const baseCountries = viewMode === 'attacks' ? attacks_by_country : geo_data;
-  const basePaths = viewMode === 'attacks' ? path_data.attacks : path_data.benign;
-  let displayGeoData = baseCountries;
-  let filteredPaths = basePaths;
-  let filteredCountries = baseCountries;
+  const { displayGeoData, filteredPaths, filteredCountries } = useMemo(() => {
+    const baseCountries = viewMode === 'attacks' ? attacks_by_country : geo_data;
+    const basePaths = viewMode === 'attacks' ? path_data.attacks : path_data.benign;
+    let nextGeo = baseCountries;
+    let nextPaths = basePaths;
+    let nextCountries = baseCountries;
 
-  const botRe = /bot|crawl|spider|slurp|curl|wget|python|go-http|java\/|okhttp|axios|node-fetch|headless|phantom|puppet|selenium|playwright|masscan|nmap|nikto|sqlmap|zgrab|censys|shodan|expanse|nuclei|httpx|feroxbuster|gobuster|dirb|dirbuster|ffuf/i;
-  const filteredAgents = onlyBots ? user_agent_data[viewMode].filter(a => botRe.test(a.ua)) : user_agent_data[viewMode];
+    if (focusPath && path_data.correlations[focusPath]) {
+      nextGeo = Object.entries(path_data.correlations[focusPath])
+        .map(([country, count]) => ({ country, count }))
+        .sort((a, b) => b.count - a.count);
+      nextCountries = nextGeo;
+    } else if (focusCountry) {
+      nextPaths = basePaths.filter(item => {
+        const corr = path_data.correlations[item.path];
+        return corr && corr[focusCountry];
+      }).map(item => ({
+        ...item,
+        count: path_data.correlations[item.path][focusCountry]
+      })).sort((a, b) => b.count - a.count);
+    }
 
-  if (focusPath && path_data.correlations[focusPath]) {
-    displayGeoData = Object.entries(path_data.correlations[focusPath])
-      .map(([country, count]) => ({ country, count }))
-      .sort((a, b) => b.count - a.count);
-    filteredCountries = displayGeoData;
-  } else if (focusCountry) {
-    filteredPaths = basePaths.filter(item => {
-      const corr = path_data.correlations[item.path];
-      return corr && corr[focusCountry];
-    }).map(item => ({
-      ...item,
-      count: path_data.correlations[item.path][focusCountry]
-    })).sort((a, b) => b.count - a.count);
-  }
+    return { displayGeoData: nextGeo, filteredPaths: nextPaths, filteredCountries: nextCountries };
+  }, [viewMode, attacks_by_country, geo_data, path_data, focusPath, focusCountry]);
+
+  const filteredAgents = useMemo(() => (
+    onlyBots ? user_agent_data[viewMode].filter(a => BOT_RE.test(a.ua)) : user_agent_data[viewMode]
+  ), [onlyBots, user_agent_data, viewMode]);
 
   const legendItemStyle = (isActive) => ({
     display: 'flex', alignItems: 'center', cursor: 'pointer',
@@ -550,30 +626,11 @@ export default function OperationalCockpit({ defaultLens = null }) {
   const tabButtonStyle = (tabName) => ({
     background: 'none', border: 'none', fontFamily: 'JetBrains Mono, monospace',
     fontSize: '11px', cursor: 'pointer', padding: '0', fontWeight: activeTab === tabName ? 'bold' : 'normal',
-    color: activeTab === tabName ? '#c00030' : '#666',
+    color: activeTab === tabName ? '#c00030' : 'var(--dim)',
     transition: 'all 0.2s'
   });
 
-  const SPECIAL_SOURCE_TAGS = {
-    T1: '[TOR]',
-    XX: '[UNKNOWN]',
-  };
-
-  const getSpecialSourceTag = (code) => {
-    if (!code) return null;
-    if (SPECIAL_SOURCE_TAGS[code]) return SPECIAL_SOURCE_TAGS[code];
-    const coords = countryCoords[code];
-    return Array.isArray(coords) && coords.length >= 2 ? null : '[NO GEO]';
-  };
-
-  const resolveFocusCoords = (code) => {
-    if (!code || code === 'XX' || code === 'T1') return null;
-    const coords = countryCoords[code];
-    if (!Array.isArray(coords) || coords.length < 2) return null;
-    return { lat: coords[0], lng: coords[1] };
-  };
-
-  const handleCountrySelect = (country) => {
+  const handleCountrySelect = useCallback((country) => {
     if (focusCountry === country) {
       setFocusCountry(null);
       setFocusCoords(null);
@@ -582,18 +639,21 @@ export default function OperationalCockpit({ defaultLens = null }) {
       setFocusCoords(resolveFocusCoords(country));
     }
     setFocusPath(null);
-  };
+  }, [focusCountry]);
 
-  const specialSources = filteredCountries.filter(item => getSpecialSourceTag(item.country) !== null);
+  const specialSources = useMemo(
+    () => filteredCountries.filter(item => getSpecialSourceTag(item.country) !== null),
+    [filteredCountries]
+  );
 
-  const handleTabClick = (tab) => {
+  const handleTabClick = useCallback((tab) => {
     setActiveTab(tab);
     setFocusPath(null);
     setFocusCountry(null);
     setFocusCoords(null);
-  };
+  }, []);
 
-  const handlePathClick = (path) => {
+  const handlePathClick = useCallback((path) => {
     if (focusPath === path) {
       setFocusPath(null);
     } else {
@@ -601,17 +661,17 @@ export default function OperationalCockpit({ defaultLens = null }) {
       setFocusCountry(null);
       setFocusCoords(null);
     }
-  };
+  }, [focusPath]);
 
   return (
     <div className={styles.layout}>
       
       {/* ======================================================== */}
-      {/* 1. ЛЕВАЯ КОЛОНКА (Сетка всегда фиксирована на 320px)       */}
+      {/* 1. LEFT COLUMN (Fixed 320px grid track)                  */}
       {/* ======================================================== */}
       <div className={styles.leftCol}>
         
-        {/* А. Состояние: Lenses Hub (Главная сетка 2x2) */}
+        {/* A. State: Lenses Hub (Main 2x2 grid) */}
         {activeLens === null && (
           <>
             <Link to="/reference" className={styles.card}>
@@ -625,33 +685,33 @@ export default function OperationalCockpit({ defaultLens = null }) {
           </>
         )}
 
-        {/* Б. Состояние: Security Globe */}
+        {/* B. State: Security Globe */}
         {activeLens === 'globe' && (
           <>
             <div className={styles.card}>
               <div className={styles.cardLabel} style={{ fontSize: '14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span>REQUESTS (24H) <span style={{ fontSize: '10px', color: '#6a6a6a', fontWeight: 'normal', marginLeft: '4px' }}>{traffic ? '[SITE]' : '[WORKERS]'}</span></span>
+                <span>REQUESTS (24H) <span style={{ fontSize: '10px', color: 'var(--dim)', fontWeight: 'normal', marginLeft: '4px' }}>{traffic ? '[SITE]' : '[WORKERS]'}</span></span>
                 {baseline && (
-                  <span style={{ fontSize: '9px', color: BASELINE_LEVEL_COLORS[baseline.level] || '#888888', border: '1px solid #1a1a1a', padding: '1px 5px' }}>
+                  <span style={{ fontSize: '9px', color: BASELINE_LEVEL_COLORS[baseline.level] || 'var(--text-base)', border: '1px solid var(--line)', padding: '1px 5px' }}>
                     {String(baseline.level || 'N/A').toUpperCase()} {typeof baseline.ratio === 'number' ? `${baseline.ratio}x` : ''}
                   </span>
                 )}
               </div>
-              <div className={styles.cardDesc} style={{ fontSize: '28px', color: '#ff8c00', marginTop: '8px', fontWeight: 'bold' }}>
+              <div className={styles.cardDesc} style={{ fontSize: '28px', color: 'var(--warn)', marginTop: '8px', fontWeight: 'bold' }}>
                 {traffic ? traffic.site_requests : security_metrics.worker_requests_24h}
               </div>
               {(traffic || baseline) && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginTop: '10px', borderTop: '1px solid #1a1a1a', paddingTop: '8px', fontSize: '10px' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginTop: '10px', borderTop: '1px solid var(--line)', paddingTop: '8px', fontSize: '10px' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <span style={{ color: '#6a6a6a' }}>WORKERS / POLL / BFF</span>
-                    <span style={{ color: '#d7d7d7' }}>
+                    <span style={{ color: 'var(--dim)' }}>WORKERS / POLL / BFF</span>
+                    <span style={{ color: 'var(--fg)' }}>
                       {security_metrics.worker_requests_24h} / {traffic ? traffic.own_polling : 'N/A'} / {traffic ? traffic.bff_requests : 'N/A'}
                     </span>
                   </div>
                   {baseline && (
                     <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <span style={{ color: '#6a6a6a' }}>PREVIOUS 24H BASELINE</span>
-                      <span style={{ color: '#888888' }}>{baseline.previous_24h}</span>
+                      <span style={{ color: 'var(--dim)' }}>PREVIOUS 24H BASELINE</span>
+                      <span style={{ color: 'var(--text-base)' }}>{baseline.previous_24h}</span>
                     </div>
                   )}
                 </div>
@@ -659,80 +719,80 @@ export default function OperationalCockpit({ defaultLens = null }) {
             </div>
 
             <div className={styles.card}>
-              <div className={styles.cardLabel}>CLIENT ERRORS <span style={{ fontSize: '10px', color: '#6a6a6a', fontWeight: 'normal', marginLeft: '4px' }}>[HTTP]</span></div>
-              <div className={styles.cardDesc} style={{ fontSize: '28px', color: security_metrics.client_errors_4xx > 0 ? '#ff8c00' : '#ffffff', marginTop: '10px', fontWeight: 'bold', borderBottom: '1px solid #1a1a1a', paddingBottom: '10px', paddingLeft: '4px' }}>{security_metrics.client_errors_4xx || 0}</div>
-              <div style={{ marginTop: '10px' }}>{renderBreakdown(4, '#ff8c00')}</div>
+              <div className={styles.cardLabel}>CLIENT ERRORS <span style={{ fontSize: '10px', color: 'var(--dim)', fontWeight: 'normal', marginLeft: '4px' }}>[HTTP]</span></div>
+              <div className={styles.cardDesc} style={{ fontSize: '28px', color: security_metrics.client_errors_4xx > 0 ? 'var(--warn)' : 'var(--fg-bright)', marginTop: '10px', fontWeight: 'bold', borderBottom: '1px solid var(--line)', paddingBottom: '10px', paddingLeft: '4px' }}>{security_metrics.client_errors_4xx || 0}</div>
+              <div style={{ marginTop: '10px' }}>{renderBreakdown(4, 'var(--warn)')}</div>
             </div>
 
             <div className={styles.card}>
-              <div className={styles.cardLabel}>SERVER ERRORS <span style={{ fontSize: '10px', color: '#6a6a6a', fontWeight: 'normal', marginLeft: '4px' }}>{errors_5xx ? '[5XX ISOLATION]' : '[HTTP]'}</span></div>
-              <div className={styles.cardDesc} style={{ fontSize: '28px', color: (errors_5xx?.total ?? security_metrics.server_errors_5xx) > 0 ? '#ff8c00' : '#ffffff', marginTop: '10px', fontWeight: 'bold', borderBottom: '1px solid #1a1a1a', paddingBottom: '10px', paddingLeft: '4px' }}>
+              <div className={styles.cardLabel}>SERVER ERRORS <span style={{ fontSize: '10px', color: 'var(--dim)', fontWeight: 'normal', marginLeft: '4px' }}>{errors_5xx ? '[5XX ISOLATION]' : '[HTTP]'}</span></div>
+              <div className={styles.cardDesc} style={{ fontSize: '28px', color: (errors_5xx?.total ?? security_metrics.server_errors_5xx) > 0 ? 'var(--warn)' : 'var(--fg-bright)', marginTop: '10px', fontWeight: 'bold', borderBottom: '1px solid var(--line)', paddingBottom: '10px', paddingLeft: '4px' }}>
                 {errors_5xx ? errors_5xx.total : (security_metrics.server_errors_5xx || 0)}
               </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', marginTop: '8px', borderBottom: '1px solid #1a1a1a', paddingBottom: '8px' }}>
-                <span style={{ color: '#888888' }}>
-                  APP 5XX: <strong style={{ color: (errors_5xx?.app_5xx ?? 0) > 0 ? '#c00030' : '#00ff66' }}>{errors_5xx ? errors_5xx.app_5xx : 'N/A'}</strong>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', marginTop: '8px', borderBottom: '1px solid var(--line)', paddingBottom: '8px' }}>
+                <span style={{ color: 'var(--text-base)' }}>
+                  APP 5XX: <strong style={{ color: (errors_5xx?.app_5xx ?? 0) > 0 ? '#c00030' : 'var(--mitre)' }}>{errors_5xx ? errors_5xx.app_5xx : 'N/A'}</strong>
                 </span>
-                <span style={{ color: '#888888' }}>
-                  PLATFORM: <strong style={{ color: (errors_5xx?.platform_5xx ?? 0) > 0 ? '#ff8c00' : '#6a6a6a' }}>{errors_5xx ? errors_5xx.platform_5xx : 'N/A'}</strong>
+                <span style={{ color: 'var(--text-base)' }}>
+                  PLATFORM: <strong style={{ color: (errors_5xx?.platform_5xx ?? 0) > 0 ? 'var(--warn)' : 'var(--dim)' }}>{errors_5xx ? errors_5xx.platform_5xx : 'N/A'}</strong>
                 </span>
               </div>
-              <div style={{ marginTop: '8px' }}>{renderBreakdown(5, '#ff8c00')}</div>
+              <div style={{ marginTop: '8px' }}>{renderBreakdown(5, 'var(--warn)')}</div>
             </div>
 
             <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
               <div className={styles.card} style={{ flex: 1, minWidth: 0, textAlign: 'center' }}>
-                <div className={styles.cardLabel} style={{ fontSize: '12px', letterSpacing: '0.05em', margin: 0 }}>LEGITIMATE <span style={{ fontSize: '9px', color: '#6a6a6a', fontWeight: 'normal' }}>[HEURISTIC]</span></div>
-                <div className={styles.cardDesc} style={{ fontSize: '24px', color: '#00ff66', marginTop: '4px', fontWeight: 'bold' }}>[ {security_metrics.health_percent || '100.0'}% ]</div>
+                <div className={styles.cardLabel} style={{ fontSize: '12px', letterSpacing: '0.05em', margin: 0 }}>LEGITIMATE <span style={{ fontSize: '9px', color: 'var(--dim)', fontWeight: 'normal' }}>[HEURISTIC]</span></div>
+                <div className={styles.cardDesc} style={{ fontSize: '24px', color: 'var(--mitre)', marginTop: '4px', fontWeight: 'bold' }}>[ {security_metrics.health_percent || '100.0'}% ]</div>
               </div>
               <div className={styles.card} style={{ flex: 1, minWidth: 0, textAlign: 'center' }}>
-                <div className={styles.cardLabel} style={{ fontSize: '12px', letterSpacing: '0.05em', margin: 0 }}>SUSPICIOUS <span style={{ fontSize: '9px', color: '#6a6a6a', fontWeight: 'normal' }}>[HEURISTIC]</span></div>
-                <div className={styles.cardDesc} style={{ fontSize: '24px', color: '#ff8c00', marginTop: '4px', fontWeight: 'bold' }}>[ {(100 - parseFloat(security_metrics.health_percent || '100.0')).toFixed(1)}% ]</div>
+                <div className={styles.cardLabel} style={{ fontSize: '12px', letterSpacing: '0.05em', margin: 0 }}>SUSPICIOUS <span style={{ fontSize: '9px', color: 'var(--dim)', fontWeight: 'normal' }}>[HEURISTIC]</span></div>
+                <div className={styles.cardDesc} style={{ fontSize: '24px', color: 'var(--warn)', marginTop: '4px', fontWeight: 'bold' }}>[ {(100 - parseFloat(security_metrics.health_percent || '100.0')).toFixed(1)}% ]</div>
               </div>
             </div>
 
             <div className={styles.card}>
               <div className={styles.cardLabel} style={{ fontSize: '12px' }}>
-                TRAFFIC &amp; UA CLASSES <span style={{ fontSize: '9px', color: '#6a6a6a', fontWeight: 'normal' }}>[CONTRACT V2]</span>
+                TRAFFIC &amp; UA CLASSES <span style={{ fontSize: '9px', color: 'var(--dim)', fontWeight: 'normal' }}>[CONTRACT V2]</span>
               </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', marginTop: '8px', borderBottom: '1px solid #1a1a1a', paddingBottom: '6px' }}>
-                <span style={{ color: '#00ff66' }}>HUMAN: {traffic ? traffic.human_est : 'N/A'}</span>
-                <span style={{ color: '#ff8c00' }}>BOT: {traffic ? traffic.bot_est : 'N/A'}</span>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', marginTop: '8px', borderBottom: '1px solid var(--line)', paddingBottom: '6px' }}>
+                <span style={{ color: 'var(--mitre)' }}>HUMAN: {traffic ? traffic.human_est : 'N/A'}</span>
+                <span style={{ color: 'var(--warn)' }}>BOT: {traffic ? traffic.bot_est : 'N/A'}</span>
                 <span style={{ color: '#c00030' }}>SCAN: {traffic ? traffic.scanner_est : 'N/A'}</span>
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginTop: '8px', fontSize: '10px' }}>
                 {Array.isArray(ua_families) && ua_families.length > 0 ? ua_families.map((u) => (
                   <div key={u.family} style={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <span style={{ color: UA_FAMILY_COLORS[u.family] || '#888888' }}>{String(u.family).toUpperCase()}</span>
-                    <span style={{ color: '#ffffff', fontWeight: 'bold' }}>{u.count}</span>
+                    <span style={{ color: UA_FAMILY_COLORS[u.family] || 'var(--text-base)' }}>{String(u.family).toUpperCase()}</span>
+                    <span style={{ color: 'var(--fg-bright)', fontWeight: 'bold' }}>{u.count}</span>
                   </div>
                 )) : (
-                  <div style={{ color: '#6a6a6a' }}>No UA family breakdown in snapshot</div>
+                  <div style={{ color: 'var(--dim)' }}>No UA family breakdown in snapshot</div>
                 )}
               </div>
             </div>
 
             <div className={styles.card}>
               <div className={styles.cardLabel} style={{ fontSize: '12px' }}>
-                PROBE VECTORS <span style={{ fontSize: '9px', color: '#6a6a6a', fontWeight: 'normal' }}>{probes ? '[PROBES V2]' : '[CLASSIFIER]'}</span>
+                PROBE VECTORS <span style={{ fontSize: '9px', color: 'var(--dim)', fontWeight: 'normal' }}>{probes ? '[PROBES V2]' : '[CLASSIFIER]'}</span>
               </div>
               {probes?.by_outcome && (
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px 10px', marginTop: '8px', fontSize: '10px', borderBottom: '1px solid #1a1a1a', paddingBottom: '8px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px 10px', marginTop: '8px', fontSize: '10px', borderBottom: '1px solid var(--line)', paddingBottom: '8px' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <span style={{ color: '#6a6a6a' }}>REACHED</span>
-                    <span style={{ color: '#d7d7d7' }}>{probes.by_outcome.reached}</span>
+                    <span style={{ color: 'var(--dim)' }}>REACHED</span>
+                    <span style={{ color: 'var(--fg)' }}>{probes.by_outcome.reached}</span>
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <span style={{ color: '#6a6a6a' }}>404</span>
-                    <span style={{ color: '#ff8c00' }}>{probes.by_outcome.not_found}</span>
+                    <span style={{ color: 'var(--dim)' }}>404</span>
+                    <span style={{ color: 'var(--warn)' }}>{probes.by_outcome.not_found}</span>
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <span style={{ color: '#6a6a6a' }}>BLOCKED</span>
+                    <span style={{ color: 'var(--dim)' }}>BLOCKED</span>
                     <span style={{ color: '#c00030' }}>{probes.by_outcome.blocked}</span>
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <span style={{ color: '#6a6a6a' }}>5XX</span>
-                    <span style={{ color: '#ff8c00' }}>{probes.by_outcome.error}</span>
+                    <span style={{ color: 'var(--dim)' }}>5XX</span>
+                    <span style={{ color: 'var(--warn)' }}>{probes.by_outcome.error}</span>
                   </div>
                 </div>
               )}
@@ -741,14 +801,14 @@ export default function OperationalCockpit({ defaultLens = null }) {
                   ? probes.families.map((f) => ({ ...getProbeFamilyMeta(f.family), count: f.count }))
                   : [
                       { label: 'SECRET LEAKS (.env, .git)', count: path_data.attacks ? path_data.attacks.filter(p => getPathFamily(p.path).name === 'SECRET LEAK').reduce((a, b) => a + b.count, 0) : 0, color: '#c00030' },
-                      { label: 'CMS & WORDPRESS', count: path_data.attacks ? path_data.attacks.filter(p => getPathFamily(p.path).name === 'WORDPRESS PROBE').reduce((a, b) => a + b.count, 0) : 0, color: '#ff8c00' },
+                      { label: 'CMS & WORDPRESS', count: path_data.attacks ? path_data.attacks.filter(p => getPathFamily(p.path).name === 'WORDPRESS PROBE').reduce((a, b) => a + b.count, 0) : 0, color: 'var(--warn)' },
                       { label: 'API EXPOSURE', count: path_data.attacks ? path_data.attacks.filter(p => getPathFamily(p.path).name === 'API EXPOSURE').reduce((a, b) => a + b.count, 0) : 0, color: '#a855f7' },
                       { label: 'DATABASE PROBES', count: path_data.attacks ? path_data.attacks.filter(p => getPathFamily(p.path).name === 'DATABASE PROBE').reduce((a, b) => a + b.count, 0) : 0, color: '#a855f7' }
                     ]
                 ).map(v => (
                   <div key={v.label} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px' }}>
                     <span style={{ color: v.color }}>{v.label}</span>
-                    <span style={{ color: '#ffffff', fontWeight: 'bold' }}>{v.count}</span>
+                    <span style={{ color: 'var(--fg-bright)', fontWeight: 'bold' }}>{v.count}</span>
                   </div>
                 ))}
               </div>
@@ -756,40 +816,40 @@ export default function OperationalCockpit({ defaultLens = null }) {
 
             <div className={styles.card}>
               <div className={styles.cardLabel} style={{ fontSize: '12px' }}>
-                AUTH EVENTS <span style={{ fontSize: '9px', color: '#6a6a6a', fontWeight: 'normal' }}>[BFF]</span>
+                AUTH EVENTS <span style={{ fontSize: '9px', color: 'var(--dim)', fontWeight: 'normal' }}>[BFF]</span>
               </div>
               {auth?.totals ? (
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px 10px', marginTop: '8px', fontSize: '10px' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <span style={{ color: '#6a6a6a' }}>LOGIN OK</span>
-                    <span style={{ color: '#00ff66', fontWeight: 'bold' }}>{auth.totals.login_success}</span>
+                    <span style={{ color: 'var(--dim)' }}>LOGIN OK</span>
+                    <span style={{ color: 'var(--mitre)', fontWeight: 'bold' }}>{auth.totals.login_success}</span>
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <span style={{ color: '#6a6a6a' }}>LOGIN FAIL</span>
-                    <span style={{ color: auth.totals.login_fail > 0 ? '#ff8c00' : '#888888', fontWeight: 'bold' }}>{auth.totals.login_fail}</span>
+                    <span style={{ color: 'var(--dim)' }}>LOGIN FAIL</span>
+                    <span style={{ color: auth.totals.login_fail > 0 ? 'var(--warn)' : 'var(--text-base)', fontWeight: 'bold' }}>{auth.totals.login_fail}</span>
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <span style={{ color: '#6a6a6a' }}>403 FORBID</span>
-                    <span style={{ color: auth.totals.forbidden > 0 ? '#c00030' : '#888888', fontWeight: 'bold' }}>{auth.totals.forbidden}</span>
+                    <span style={{ color: 'var(--dim)' }}>403 FORBID</span>
+                    <span style={{ color: auth.totals.forbidden > 0 ? '#c00030' : 'var(--text-base)', fontWeight: 'bold' }}>{auth.totals.forbidden}</span>
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <span style={{ color: '#6a6a6a' }}>LOGOUT</span>
-                    <span style={{ color: '#888888', fontWeight: 'bold' }}>{auth.totals.logout}</span>
+                    <span style={{ color: 'var(--dim)' }}>LOGOUT</span>
+                    <span style={{ color: 'var(--text-base)', fontWeight: 'bold' }}>{auth.totals.logout}</span>
                   </div>
                 </div>
               ) : (
-                <div style={{ fontSize: '10px', color: '#6a6a6a', marginTop: '8px' }}>N/A</div>
+                <div style={{ fontSize: '10px', color: 'var(--dim)', marginTop: '8px' }}>N/A</div>
               )}
             </div>
           </>
         )}
 
-        {/* В. Состояние: Neural Port */}
+        {/* C. State: Neural Port */}
         {activeLens === 'neural-port' && (
           <>
             <div className={styles.card}>
               <div className={styles.cardLabel}>KNOWLEDGE TAXONOMY</div>
-              <div className={styles.cardDesc} style={{ color: '#888888', marginTop: '8px', lineHeight: '1.5' }}>
+              <div className={styles.cardDesc} style={{ color: 'var(--text-base)', marginTop: '8px', lineHeight: '1.5' }}>
                 Organized repository of security intelligence, HTB walkthroughs, defensive configurations, CVEs, and MITRE adversary mapping.
               </div>
             </div>
@@ -804,28 +864,28 @@ export default function OperationalCockpit({ defaultLens = null }) {
           </>
         )}
 
-        {/* Г. Состояние: ATT&CK Matrix */}
+        {/* D. State: ATT&CK Matrix */}
         {activeLens === 'attack-matrix' && (
           <>
             <div className={styles.card}>
               <div className={styles.cardLabel}>MITRE ATT&amp;CK SCOPE</div>
-              <div className={styles.cardDesc} style={{ color: '#888888', marginTop: '8px', lineHeight: '1.5' }}>
+              <div className={styles.cardDesc} style={{ color: 'var(--text-base)', marginTop: '8px', lineHeight: '1.5' }}>
                 Enterprise matrix mapping 25 adversary techniques across 10 tactics against live Contract v2 edge probe telemetry.
               </div>
             </div>
             <div className={styles.card}>
-              <div className={styles.cardLabel}>LIVE EDGE SIGNALS <span style={{ fontSize: '9px', color: '#6a6a6a', fontWeight: 'normal' }}>[24H]</span></div>
+              <div className={styles.cardLabel}>LIVE EDGE SIGNALS <span style={{ fontSize: '9px', color: 'var(--dim)', fontWeight: 'normal' }}>[24H]</span></div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '10px', fontSize: '11px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span style={{ color: '#888888' }}>RECON / SCAN</span>
-                  <span style={{ color: '#00ff66', fontWeight: 'bold' }}>
+                  <span style={{ color: 'var(--text-base)' }}>RECON / SCAN</span>
+                  <span style={{ color: 'var(--mitre)', fontWeight: 'bold' }}>
                     {probes?.families
                       ? `${probes.families.filter(f => f.family === 'hex32_probe' || f.family === 'phpinfo').reduce((a, f) => a + f.count, 0)} HITS`
                       : '3 BASELINE'}
                   </span>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span style={{ color: '#888888' }}>CREDENTIAL ACCESS</span>
+                  <span style={{ color: 'var(--text-base)' }}>CREDENTIAL ACCESS</span>
                   <span style={{ color: '#c00030', fontWeight: 'bold' }}>
                     {probes?.families
                       ? `${probes.families.filter(f => f.family === 'env_file' || f.family === 'git' || f.family === 'aws_creds').reduce((a, f) => a + f.count, 0)} HITS`
@@ -833,16 +893,16 @@ export default function OperationalCockpit({ defaultLens = null }) {
                   </span>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span style={{ color: '#888888' }}>INITIAL ACCESS</span>
-                  <span style={{ color: '#ff8c00', fontWeight: 'bold' }}>
+                  <span style={{ color: 'var(--text-base)' }}>INITIAL ACCESS</span>
+                  <span style={{ color: 'var(--warn)', fontWeight: 'bold' }}>
                     {probes?.families
                       ? `${probes.families.filter(f => f.family === 'wordpress' || f.family === 'api_probe' || f.family === 'db_probe').reduce((a, f) => a + f.count, 0)} HITS`
                       : '3 COVERED'}
                   </span>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span style={{ color: '#888888' }}>BRUTE FORCE (AUTH)</span>
-                  <span style={{ color: (auth?.totals?.login_fail ?? 0) + (auth?.totals?.forbidden ?? 0) > 0 ? '#ff8c00' : '#00ff66', fontWeight: 'bold' }}>
+                  <span style={{ color: 'var(--text-base)' }}>BRUTE FORCE (AUTH)</span>
+                  <span style={{ color: (auth?.totals?.login_fail ?? 0) + (auth?.totals?.forbidden ?? 0) > 0 ? 'var(--warn)' : 'var(--mitre)', fontWeight: 'bold' }}>
                     {auth?.totals ? `${(auth.totals.login_fail || 0) + (auth.totals.forbidden || 0)} EVENTS` : '0 EVENTS'}
                   </span>
                 </div>
@@ -851,12 +911,12 @@ export default function OperationalCockpit({ defaultLens = null }) {
           </>
         )}
 
-        {/* Д. Состояние: Assurance */}
+        {/* E. State: Assurance */}
         {activeLens === 'assurance' && (
           <>
             <div className={styles.card}>
               <div className={styles.cardLabel}>DEFENSE ASSURANCE</div>
-              <div className={styles.cardDesc} style={{ color: '#888888', marginTop: '8px', lineHeight: '1.5' }}>
+              <div className={styles.cardDesc} style={{ color: 'var(--text-base)', marginTop: '8px', lineHeight: '1.5' }}>
                 Continuous audit of Zero Trust enforcement, WAF isolation, masking canon, supply chain security, and live 5xx health.
               </div>
             </div>
@@ -864,23 +924,23 @@ export default function OperationalCockpit({ defaultLens = null }) {
               <div className={styles.cardLabel}>ASSURANCE SUMMARY</div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '10px', fontSize: '11px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span style={{ color: '#888888' }}>CONTROLS EVALUATED</span>
-                  <span style={{ color: '#ffffff', fontWeight: 'bold' }}>7 CONTROLS</span>
+                  <span style={{ color: 'var(--text-base)' }}>CONTROLS EVALUATED</span>
+                  <span style={{ color: 'var(--fg-bright)', fontWeight: 'bold' }}>7 CONTROLS</span>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span style={{ color: '#888888' }}>RUNTIME TELEMETRY</span>
-                  <span style={{ color: !isLive || meta?.stale || (errors_5xx?.app_5xx ?? 0) > 0 ? '#ff8c00' : '#00ff66', fontWeight: 'bold' }}>
+                  <span style={{ color: 'var(--text-base)' }}>RUNTIME TELEMETRY</span>
+                  <span style={{ color: !isLive || meta?.stale || (errors_5xx?.app_5xx ?? 0) > 0 ? 'var(--warn)' : 'var(--mitre)', fontWeight: 'bold' }}>
                     {!isLive ? 'FALLBACK' : (errors_5xx?.app_5xx ?? 0) > 0 ? 'APP 5XX WARN' : meta?.stale ? 'STALE' : 'FRESH // GREEN'}
                   </span>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span style={{ color: '#888888' }}>APP 5XX ISOLATION</span>
-                  <span style={{ color: (errors_5xx?.app_5xx ?? 0) > 0 ? '#c00030' : '#00ff66', fontWeight: 'bold' }}>
+                  <span style={{ color: 'var(--text-base)' }}>APP 5XX ISOLATION</span>
+                  <span style={{ color: (errors_5xx?.app_5xx ?? 0) > 0 ? '#c00030' : 'var(--mitre)', fontWeight: 'bold' }}>
                     {errors_5xx ? `${errors_5xx.app_5xx} APP / ${errors_5xx.platform_5xx} PLAT` : 'N/A'}
                   </span>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span style={{ color: '#888888' }}>ZERO-COST CONSTRAINT</span>
+                  <span style={{ color: 'var(--text-base)' }}>ZERO-COST CONSTRAINT</span>
                   <span style={{ color: '#0055ff', fontWeight: 'bold' }}>$0.00 / FREE TIER</span>
                 </div>
               </div>
@@ -891,7 +951,7 @@ export default function OperationalCockpit({ defaultLens = null }) {
       </div>
 
       {/* ======================================================== */}
-      {/* 2. ЦЕНТРАЛЬНЫЙ ПОРТ (STAGE & HUD)                          */}
+      {/* 2. CENTER PORT (STAGE & HUD)                             */}
       {/* ======================================================== */}
       <div className={styles.centerCol}>
         <div 
@@ -906,7 +966,7 @@ export default function OperationalCockpit({ defaultLens = null }) {
           }}
         >
           
-          {/* ВЕРХНИЙ ХЕДЕР HUD (Скрыт для Neural Port, так как Neural Port имеет собственный встроенный HUD) */}
+          {/* Top HUD header (hidden for Neural Port which renders its own integrated HUD) */}
           {activeLens !== 'neural-port' && (
             <header className="hud">
               <span className="brand">
@@ -1016,27 +1076,27 @@ export default function OperationalCockpit({ defaultLens = null }) {
             </header>
           )}
 
-          {/* ОСНОВНОЙ ВЬЮПОРТ (STAGE) */}
+          {/* MAIN VIEWPORT (STAGE) */}
           <main className="stage" style={{ position: 'relative', width: '100%', height: '100%', overflow: 'hidden' }}>
             
-            {/* А. Сетка 2x2 Lenses Hub (когда activeLens === null) */}
+            {/* A. 2x2 Lenses Hub grid (when activeLens === null) */}
             {activeLens === null && (
               <LensesHub onSelectLens={setActiveLens} metrics={security_metrics} snapshot={data} />
             )}
 
-            {/* Б. Security Globe */}
+            {/* B. Security Globe */}
             {activeLens === 'globe' && (
               <>
-                {/* Легенда глобуса */}
-                <div style={{ position: 'absolute', top: '16px', left: '16px', zIndex: 10, display: 'flex', flexDirection: 'column', gap: '8px', fontFamily: 'JetBrains Mono, monospace', fontSize: '10px', color: '#888888', userSelect: 'none' }}>
+                {/* Globe Layer Legend */}
+                <div style={{ position: 'absolute', top: '16px', left: '16px', zIndex: 10, display: 'flex', flexDirection: 'column', gap: '8px', fontFamily: 'JetBrains Mono, monospace', fontSize: '10px', color: 'var(--text-base)', userSelect: 'none' }}>
                   {[
-                    { key: 'threats', label: 'Events', color: '#ff8c00' },
+                    { key: 'threats', label: 'Events', color: 'var(--warn)' },
                     { key: 'shield', label: 'Defense In Depth', color: '#0000ff' },
                     { key: 'timeline', label: '24H Traffic Timeline', color: '#a855f7' }
                   ].map(item => (
                     <div key={item.key} style={legendItemStyle(layers[item.key])} onClick={() => toggleLayer(item.key)}>
                       <svg width="8" height="8" style={{ marginRight: '6px', flexShrink: 0 }}>
-                        <circle cx="4" cy="4" r="4" fill={layers[item.key] ? item.color : '#6a6a6a'} />
+                        <circle cx="4" cy="4" r="4" fill={layers[item.key] ? item.color : 'var(--dim)'} />
                       </svg>
                       <span style={{ lineHeight: 1, transform: 'translateY(1px)' }}>{item.label}</span>
                     </div>
@@ -1049,7 +1109,7 @@ export default function OperationalCockpit({ defaultLens = null }) {
                   <div>Fully anonymized.</div>
                 </div>
 
-                <BrowserOnly fallback={<div style={{ background: '#000', height: '100%' }} />}>
+                <BrowserOnly fallback={<div style={{ background: 'var(--bg)', height: '100%' }} />}>
                   {() => (
                     <Suspense fallback={<div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%', color: '#c00030', fontFamily: 'JetBrains Mono, monospace' }}>INITIALIZING GLOBE...</div>}>
                       <SecurityGlobe 
@@ -1070,36 +1130,36 @@ export default function OperationalCockpit({ defaultLens = null }) {
               </>
             )}
 
-            {/* В. Neural Port */}
+            {/* C. Neural Port */}
             {activeLens === 'neural-port' && (
-              <BrowserOnly fallback={<div style={{ background: '#000', height: '100%' }} />}>
+              <BrowserOnly fallback={<div style={{ background: 'var(--bg)', height: '100%' }} />}>
                 {() => (
                   <Suspense fallback={<div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%', color: '#c00030', fontFamily: 'JetBrains Mono, monospace' }}>INITIALIZING NEURAL PORT...</div>}>
                     <NeuralGraph 
                       key={'neural-graph-' + lensMountKey}
                       embedded={true} 
-                      onBackToLenses={() => setActiveLens(null)} 
-                      onReady={() => setIsGraphReady(true)} 
+                      onBackToLenses={handleBackToLenses} 
+                      onReady={handleGraphReady} 
                     />
                   </Suspense>
                 )}
               </BrowserOnly>
             )}
 
-            {/* Г. ATT&CK Matrix */}
+            {/* D. ATT&CK Matrix */}
             {activeLens === 'attack-matrix' && (
-              <BrowserOnly fallback={<div style={{ background: '#000', height: '100%' }} />}>
+              <BrowserOnly fallback={<div style={{ background: 'var(--bg)', height: '100%' }} />}>
                 {() => (
-                  <Suspense fallback={<div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%', color: '#00ff66', fontFamily: 'JetBrains Mono, monospace' }}>INITIALIZING ATT&amp;CK MATRIX...</div>}>
+                  <Suspense fallback={<div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%', color: 'var(--mitre)', fontFamily: 'JetBrains Mono, monospace' }}>INITIALIZING ATT&amp;CK MATRIX...</div>}>
                     <AttackMatrix snapshot={data} />
                   </Suspense>
                 )}
               </BrowserOnly>
             )}
 
-            {/* Д. Assurance View */}
+            {/* E. Assurance View */}
             {activeLens === 'assurance' && (
-              <BrowserOnly fallback={<div style={{ background: '#000', height: '100%' }} />}>
+              <BrowserOnly fallback={<div style={{ background: 'var(--bg)', height: '100%' }} />}>
                 {() => (
                   <Suspense fallback={<div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%', color: '#0055ff', fontFamily: 'JetBrains Mono, monospace' }}>INITIALIZING ASSURANCE...</div>}>
                     <AssuranceView snapshot={data} isLive={isLive} />
@@ -1113,63 +1173,63 @@ export default function OperationalCockpit({ defaultLens = null }) {
       </div>
 
       {/* ======================================================== */}
-      {/* 3. ПРАВАЯ КОЛОНКА (Сетка всегда фиксирована на 320px)      */}
+      {/* 3. RIGHT COLUMN (Fixed 320px grid track)                 */}
       {/* ======================================================== */}
       <div className={styles.rightCol}>
         
-        {/* А. Состояние: Lenses Hub (Резервная тактическая рамка) */}
+        {/* A. State: Lenses Hub (Tactical system telemetry summary) */}
         {activeLens === null && (
           <>
             <div className={styles.threatsHeader}>SYSTEM TELEMETRY</div>
-            <div style={{ padding: '14px', border: '1px solid #1a1a1a', background: '#0a0a0a', fontSize: '11px', color: '#6a6a6a', fontFamily: 'JetBrains Mono, monospace', lineHeight: '1.6', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            <div style={{ padding: '14px', border: '1px solid var(--line)', background: 'var(--bg-elev)', fontSize: '11px', color: 'var(--dim)', fontFamily: 'JetBrains Mono, monospace', lineHeight: '1.6', display: 'flex', flexDirection: 'column', gap: '10px' }}>
               <div>
-                <div style={{ color: '#d7d7d7', fontWeight: 'bold', marginBottom: '6px' }}>TACTICAL LENSES HUB</div>
+                <div style={{ color: 'var(--fg)', fontWeight: 'bold', marginBottom: '6px' }}>TACTICAL LENSES HUB</div>
                 <div>Select an operational lens in the central port to engage full-spectrum telemetry.</div>
               </div>
 
-              <div style={{ borderTop: '1px solid #1a1a1a', paddingTop: '8px', display: 'flex', flexDirection: 'column', gap: '5px', fontSize: '10px' }}>
+              <div style={{ borderTop: '1px solid var(--line)', paddingTop: '8px', display: 'flex', flexDirection: 'column', gap: '5px', fontSize: '10px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span style={{ color: '#888888' }}>BASELINE (24H)</span>
-                  <span style={{ color: BASELINE_LEVEL_COLORS[baseline?.level] || '#888888', fontWeight: 'bold' }}>
+                  <span style={{ color: 'var(--text-base)' }}>BASELINE (24H)</span>
+                  <span style={{ color: BASELINE_LEVEL_COLORS[baseline?.level] || 'var(--text-base)', fontWeight: 'bold' }}>
                     {baseline ? `${String(baseline.level || 'N/A').toUpperCase()} (${baseline.ratio}x)` : 'N/A'}
                   </span>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span style={{ color: '#888888' }}>TRAFFIC (SITE / POLL)</span>
-                  <span style={{ color: '#ffffff' }}>
+                  <span style={{ color: 'var(--text-base)' }}>TRAFFIC (SITE / POLL)</span>
+                  <span style={{ color: 'var(--fg-bright)' }}>
                     {traffic ? `${traffic.site_requests} / ${traffic.own_polling}` : `${security_metrics.worker_requests_24h} WK`}
                   </span>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span style={{ color: '#888888' }}>5XX (APP / PLAT)</span>
+                  <span style={{ color: 'var(--text-base)' }}>5XX (APP / PLAT)</span>
                   <span>
-                    <strong style={{ color: (errors_5xx?.app_5xx ?? 0) > 0 ? '#c00030' : '#00ff66' }}>{errors_5xx ? errors_5xx.app_5xx : 'N/A'}</strong>
-                    <span style={{ color: '#6a6a6a' }}> / </span>
-                    <strong style={{ color: (errors_5xx?.platform_5xx ?? 0) > 0 ? '#ff8c00' : '#6a6a6a' }}>{errors_5xx ? errors_5xx.platform_5xx : 'N/A'}</strong>
+                    <strong style={{ color: (errors_5xx?.app_5xx ?? 0) > 0 ? '#c00030' : 'var(--mitre)' }}>{errors_5xx ? errors_5xx.app_5xx : 'N/A'}</strong>
+                    <span style={{ color: 'var(--dim)' }}> / </span>
+                    <strong style={{ color: (errors_5xx?.platform_5xx ?? 0) > 0 ? 'var(--warn)' : 'var(--dim)' }}>{errors_5xx ? errors_5xx.platform_5xx : 'N/A'}</strong>
                   </span>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span style={{ color: '#888888' }}>PROBES / BLOCKED</span>
-                  <span style={{ color: '#d7d7d7' }}>
+                  <span style={{ color: 'var(--text-base)' }}>PROBES / BLOCKED</span>
+                  <span style={{ color: 'var(--fg)' }}>
                     {probes ? `${probes.total} / ${probes.by_outcome?.blocked ?? 0}` : `${security_metrics.blocked_403} BLK`}
                   </span>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span style={{ color: '#888888' }}>AUTH FAIL / 403</span>
-                  <span style={{ color: (auth?.totals?.login_fail ?? 0) > 0 || (auth?.totals?.forbidden ?? 0) > 0 ? '#ff8c00' : '#00ff66' }}>
+                  <span style={{ color: 'var(--text-base)' }}>AUTH FAIL / 403</span>
+                  <span style={{ color: (auth?.totals?.login_fail ?? 0) > 0 || (auth?.totals?.forbidden ?? 0) > 0 ? 'var(--warn)' : 'var(--mitre)' }}>
                     {auth?.totals ? `${auth.totals.login_fail} / ${auth.totals.forbidden}` : 'N/A'}
                   </span>
                 </div>
               </div>
 
-              <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid #1a1a1a', paddingTop: '8px', fontSize: '10px' }}>
-                <span style={{ color: '#888888' }}>SNAPSHOT STATE</span>
-                <span style={{ color: !isLive || meta?.stale || meta?.quota_warning ? '#ff8c00' : '#00ff66', fontWeight: 'bold' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid var(--line)', paddingTop: '8px', fontSize: '10px' }}>
+                <span style={{ color: 'var(--text-base)' }}>SNAPSHOT STATE</span>
+                <span style={{ color: !isLive || meta?.stale || meta?.quota_warning ? 'var(--warn)' : 'var(--mitre)', fontWeight: 'bold' }}>
                   {!isLive ? 'FALLBACK' : meta?.quota_warning ? 'QUOTA WARN' : meta?.stale ? 'STALE' : 'FRESH // V2'}
                 </span>
               </div>
               {errorMsg && (
-                <div style={{ fontSize: '9px', color: '#ff8c00', borderTop: '1px solid #1a1a1a', paddingTop: '6px' }}>
+                <div style={{ fontSize: '9px', color: 'var(--warn)', borderTop: '1px solid var(--line)', paddingTop: '6px' }}>
                   {errorMsg}
                 </div>
               )}
@@ -1177,30 +1237,30 @@ export default function OperationalCockpit({ defaultLens = null }) {
           </>
         )}
 
-        {/* Б. Состояние: Neural Port (Живой фид CVE) */}
+        {/* B. State: Neural Port (Live CVE Threat Feed) */}
         {activeLens === 'neural-port' && (
           <>
             <div className={styles.threatsHeader}>LIVE THREATS</div>
-            <LiveThreats onSync={setCveSync} />
+            <LiveThreats feedData={cveFeedData} onSync={setCveSync} />
           </>
         )}
 
-        {/* В. Состояние: Security Globe (Top Sources, кнопки линз УДАЛЕНЫ) */}
+        {/* C. State: Security Globe (Top Sources) */}
         {activeLens === 'globe' && (
           <div>
             <div className={styles.threatsHeader}>
-              TOP SOURCES <span style={{ fontSize: '10px', color: '#666', fontWeight: 'normal' }}>[HTTP]</span>
+              TOP SOURCES <span style={{ fontSize: '10px', color: 'var(--dim)', fontWeight: 'normal' }}>[HTTP]</span>
             </div>
 
-            <div style={{ marginBottom: '14px', borderBottom: '1px solid #222', paddingBottom: '10px' }}>
-              <div style={{ fontSize: '10px', color: '#666', marginBottom: '6px' }}>MODE:</div>
+            <div style={{ marginBottom: '14px', borderBottom: '1px solid var(--line-strong)', paddingBottom: '10px' }}>
+              <div style={{ fontSize: '10px', color: 'var(--dim)', marginBottom: '6px' }}>MODE:</div>
               <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                 <button 
                   type="button"
                   style={{
                     background: 'none', border: 'none', padding: 0,
                     fontFamily: 'JetBrains Mono, monospace', fontSize: '11px', cursor: 'pointer',
-                    color: viewMode === 'traffic' ? '#c00030' : '#666',
+                    color: viewMode === 'traffic' ? '#c00030' : 'var(--dim)',
                     fontWeight: viewMode === 'traffic' ? 'bold' : 'normal'
                   }}
                   onClick={() => { setViewMode('traffic'); setFocusPath(null); setFocusCountry(null); setFocusCoords(null); }}
@@ -1212,7 +1272,7 @@ export default function OperationalCockpit({ defaultLens = null }) {
                   style={{
                     background: 'none', border: 'none', padding: 0,
                     fontFamily: 'JetBrains Mono, monospace', fontSize: '11px', cursor: 'pointer',
-                    color: viewMode === 'attacks' ? '#c00030' : '#666',
+                    color: viewMode === 'attacks' ? '#c00030' : 'var(--dim)',
                     fontWeight: viewMode === 'attacks' ? 'bold' : 'normal'
                   }}
                   onClick={() => { setViewMode('attacks'); setFocusPath(null); setFocusCountry(null); setFocusCoords(null); }}
@@ -1222,8 +1282,8 @@ export default function OperationalCockpit({ defaultLens = null }) {
               </div>
             </div>
 
-            <div style={{ marginBottom: '14px', borderBottom: '1px solid #222', paddingBottom: '10px' }}>
-              <div style={{ fontSize: '10px', color: '#666', marginBottom: '6px' }}>FILTER BY:</div>
+            <div style={{ marginBottom: '14px', borderBottom: '1px solid var(--line-strong)', paddingBottom: '10px' }}>
+              <div style={{ fontSize: '10px', color: 'var(--dim)', marginBottom: '6px' }}>FILTER BY:</div>
               <div style={{ display: 'flex', gap: '12px' }}>
                 <button type="button" style={tabButtonStyle('countries')} onClick={() => handleTabClick('countries')}>[ COUNTRIES ]</button>
                 <button type="button" style={tabButtonStyle('paths')} onClick={() => handleTabClick('paths')}>[ PATHS ]</button>
@@ -1235,17 +1295,17 @@ export default function OperationalCockpit({ defaultLens = null }) {
               {activeTab === 'countries' && specialSources.length > 0 && (
                 <div style={{
                   padding: '6px 10px',
-                  border: '1px solid #1a1a1a',
-                  backgroundColor: '#0a0a0a',
+                  border: '1px solid var(--line)',
+                  backgroundColor: 'var(--bg-elev)',
                   fontSize: '10px',
-                  color: '#6a6a6a',
+                  color: 'var(--dim)',
                   display: 'flex',
                   justifyContent: 'space-between',
                   alignItems: 'center',
                   gap: '8px'
                 }}>
                   <span>SPECIAL SOURCES</span>
-                  <span style={{ color: '#d7d7d7' }}>
+                  <span style={{ color: 'var(--fg)' }}>
                     {specialSources.map(s => `${s.country}:${s.count}`).join(' // ')}
                   </span>
                 </div>
@@ -1268,7 +1328,7 @@ export default function OperationalCockpit({ defaultLens = null }) {
                       <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                         <div className={styles.threatId}>{item.country}</div>
                         {specialTag && (
-                          <span style={{ fontSize: '9px', color: '#6a6a6a', border: '1px solid #1a1a1a', padding: '1px 4px' }}>
+                          <span style={{ fontSize: '9px', color: 'var(--dim)', border: '1px solid var(--line)', padding: '1px 4px' }}>
                             {specialTag}
                           </span>
                         )}
@@ -1305,12 +1365,12 @@ export default function OperationalCockpit({ defaultLens = null }) {
                           fontWeight: '600', 
                           color: family.color, 
                           border: `1px solid ${family.color}`,
-                          background: 'rgba(0,0,0,0.5)',
+                          background: 'var(--bg)',
                           whiteSpace: 'nowrap'
                         }}>
                           {family.name}
                         </span>
-                        <div className={styles.threatId} style={{ fontSize: '11px', wordBreak: 'break-all', color: isFocused ? '#fff' : undefined }}>
+                        <div className={styles.threatId} style={{ fontSize: '11px', wordBreak: 'break-all', color: isFocused ? 'var(--fg-bright)' : undefined }}>
                           {item.path}
                         </div>
                       </div>
@@ -1335,7 +1395,7 @@ export default function OperationalCockpit({ defaultLens = null }) {
                           fontWeight: '600', 
                           color: cat.color, 
                           border: `1px solid ${cat.color}`,
-                          background: 'rgba(0,0,0,0.5)',
+                          background: 'var(--bg)',
                           whiteSpace: 'nowrap'
                         }}>
                           {cat.name}
@@ -1355,24 +1415,24 @@ export default function OperationalCockpit({ defaultLens = null }) {
           </div>
         )}
 
-        {/* Г. Состояние: ATT&CK Matrix */}
+        {/* D. State: ATT&CK Matrix */}
         {activeLens === 'attack-matrix' && (
           <div>
             <div className={styles.threatsHeader}>COVERAGE METRICS</div>
-            <div style={{ padding: '14px', border: '1px solid #1a1a1a', background: '#0a0a0a', fontSize: '11px', color: '#6a6a6a', fontFamily: 'JetBrains Mono, monospace', lineHeight: '1.6', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              <div style={{ color: '#00ff66', fontWeight: 'bold' }}>MITRE ATT&amp;CK TELEMETRY</div>
+            <div style={{ padding: '14px', border: '1px solid var(--line)', background: 'var(--bg-elev)', fontSize: '11px', color: 'var(--dim)', fontFamily: 'JetBrains Mono, monospace', lineHeight: '1.6', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <div style={{ color: 'var(--mitre)', fontWeight: 'bold' }}>MITRE ATT&amp;CK TELEMETRY</div>
               <div>Active defensive mapping against enterprise adversary tactics using Contract v2 edge classifiers.</div>
-              <div style={{ borderTop: '1px solid #1a1a1a', paddingTop: '8px', display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '10px' }}>
+              <div style={{ borderTop: '1px solid var(--line)', paddingTop: '8px', display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '10px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span style={{ color: '#888888' }}>DETECTION ENGINE</span>
-                  <span style={{ color: '#ffffff' }}>EDGE WAF + V2 PROBES</span>
+                  <span style={{ color: 'var(--text-base)' }}>DETECTION ENGINE</span>
+                  <span style={{ color: 'var(--fg-bright)' }}>EDGE WAF + V2 PROBES</span>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span style={{ color: '#888888' }}>ACTIVE FAMILIES (24H)</span>
-                  <span style={{ color: '#ff8c00', fontWeight: 'bold' }}>{probes?.families ? probes.families.length : 0}</span>
+                  <span style={{ color: 'var(--text-base)' }}>ACTIVE FAMILIES (24H)</span>
+                  <span style={{ color: 'var(--warn)', fontWeight: 'bold' }}>{probes?.families ? probes.families.length : 0}</span>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span style={{ color: '#888888' }}>BLOCKED OUTCOMES</span>
+                  <span style={{ color: 'var(--text-base)' }}>BLOCKED OUTCOMES</span>
                   <span style={{ color: '#c00030', fontWeight: 'bold' }}>{probes?.by_outcome ? probes.by_outcome.blocked : security_metrics.blocked_403}</span>
                 </div>
               </div>
@@ -1380,29 +1440,29 @@ export default function OperationalCockpit({ defaultLens = null }) {
           </div>
         )}
 
-        {/* Д. Состояние: Assurance */}
+        {/* E. State: Assurance */}
         {activeLens === 'assurance' && (
           <div>
             <div className={styles.threatsHeader}>ASSURANCE LOG</div>
-            <div style={{ padding: '14px', border: '1px solid #1a1a1a', background: '#0a0a0a', fontSize: '11px', color: '#6a6a6a', fontFamily: 'JetBrains Mono, monospace', lineHeight: '1.6', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            <div style={{ padding: '14px', border: '1px solid var(--line)', background: 'var(--bg-elev)', fontSize: '11px', color: 'var(--dim)', fontFamily: 'JetBrains Mono, monospace', lineHeight: '1.6', display: 'flex', flexDirection: 'column', gap: '8px' }}>
               <div style={{ color: '#0055ff', fontWeight: 'bold' }}>CONTINUOUS AUDIT LOG</div>
               <div>7 security posture &amp; telemetry integrity controls bound to live Contract v2 signals.</div>
-              <div style={{ borderTop: '1px solid #1a1a1a', paddingTop: '8px', display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '10px' }}>
+              <div style={{ borderTop: '1px solid var(--line)', paddingTop: '8px', display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '10px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span style={{ color: '#888888' }}>SNAPSHOT STATE</span>
-                  <span style={{ color: !isLive || meta?.stale ? '#ff8c00' : '#00ff66', fontWeight: 'bold' }}>
+                  <span style={{ color: 'var(--text-base)' }}>SNAPSHOT STATE</span>
+                  <span style={{ color: !isLive || meta?.stale ? 'var(--warn)' : 'var(--mitre)', fontWeight: 'bold' }}>
                     {!isLive ? 'FALLBACK' : meta?.stale ? 'STALE' : 'FRESH // V2'}
                   </span>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span style={{ color: '#888888' }}>APP 5XX COUNT</span>
-                  <span style={{ color: (errors_5xx?.app_5xx ?? 0) > 0 ? '#c00030' : '#00ff66', fontWeight: 'bold' }}>
+                  <span style={{ color: 'var(--text-base)' }}>APP 5XX COUNT</span>
+                  <span style={{ color: (errors_5xx?.app_5xx ?? 0) > 0 ? '#c00030' : 'var(--mitre)', fontWeight: 'bold' }}>
                     {errors_5xx ? errors_5xx.app_5xx : 'N/A'}
                   </span>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span style={{ color: '#888888' }}>QUOTA WARNING</span>
-                  <span style={{ color: meta?.quota_warning ? '#ff8c00' : '#00ff66', fontWeight: 'bold' }}>
+                  <span style={{ color: 'var(--text-base)' }}>QUOTA WARNING</span>
+                  <span style={{ color: meta?.quota_warning ? 'var(--warn)' : 'var(--mitre)', fontWeight: 'bold' }}>
                     {meta?.quota_warning ? 'YES' : 'NONE'}
                   </span>
                 </div>
@@ -1414,7 +1474,7 @@ export default function OperationalCockpit({ defaultLens = null }) {
       </div>
 
       {/* ======================================================== */}
-      {/* 4. ФУТЕРЫ (Нижняя строка сетки)                           */}
+      {/* 4. FOOTERS (Bottom grid row)                             */}
       {/* ======================================================== */}
       <div className={styles.leftFooter} style={{ display: 'flex', alignItems: 'center' }}>
         <svg width='14' height='14' viewBox='0 0 14 14' style={{ marginRight: '8px', transform: 'translateY(-0.5px)' }}>
@@ -1432,18 +1492,14 @@ export default function OperationalCockpit({ defaultLens = null }) {
           : 'PRESS ESC TO RETURN TO LENSES · CLICK TO INSPECT'}
       </div>
       
-      <div className={styles.rightFooter} style={{ display: 'block', textAlign: 'center', width: '100%', padding: '10px 0' }}>
-        <span style={{ display: 'inline-block', position: 'relative', transform: 'translateX(-6px)', whiteSpace: 'nowrap' }}>
-          <span style={{ visibility: 'hidden', fontWeight: 'bold' }}>
-            <span>{activeLens === 'neural-port' ? 'LAST SYNC:' : (isLive ? 'LIVE SYNC:' : 'LAST SYNC:')}</span> 0000-00-00 00:00 GMT+4
-          </span>
-          <span style={{ position: 'absolute', left: 0, top: 0 }}>
-            <span className={activeLens === 'neural-port' ? (isCveAnimating ? styles.blink : '') : (isTelemetryAnimating ? styles.blink : '')} style={{ color: '#c00030', fontWeight: 'bold', transition: 'opacity 0.5s ease-out' }}>
-              {activeLens === 'neural-port' ? 'LAST SYNC:' : (isLive ? 'LIVE SYNC:' : 'LAST SYNC:')}
-            </span> {activeLens === 'neural-port' ? displayCveSync : displayTelemetrySync}
-          </span>
-        </span>
-      </div>
+      <SyncFooter
+        activeLens={activeLens}
+        isLive={isLive}
+        cveSync={cveSync}
+        telemetrySync={telemetrySync}
+        lensMountKey={lensMountKey}
+        onCveTextReady={setIsTextReady}
+      />
 
     </div>
   );

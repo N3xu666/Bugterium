@@ -3,10 +3,89 @@ import Globe from 'react-globe.gl';
 import * as THREE from 'three';
 import { countryCoords } from './countryCoords';
 
-// Коэффициент перевода угловых градусов сферы (ThreeGlobe R=100) в мировые единицы Three.js
+// Degrees-to-world-units factor for ThreeGlobe sphere (R=100)
 const GLOBE_PX_PER_DEG = (2 * Math.PI * 100) / 360; // ~1.7453
 
-// Статичные аксессоры для предотвращения пересоздания геометрии дуг и колец в react-kapsule
+const getIsLightTheme = () =>
+  typeof document !== 'undefined' && document.documentElement?.dataset?.theme === 'light';
+
+// Module-level earth texture material cache to avoid reprocessing 4096x2048 pixels on every lens switch
+let cachedDarkGlobeMat = null;
+let cachedLightGlobeMat = null;
+let globeLoadPromise = null;
+
+const loadGlobeMaterials = () => {
+  if (cachedDarkGlobeMat && cachedLightGlobeMat) {
+    return Promise.resolve({ dark: cachedDarkGlobeMat, light: cachedLightGlobeMat });
+  }
+  if (globeLoadPromise) return globeLoadPromise;
+  globeLoadPromise = new Promise((resolve) => {
+    const img = new Image();
+    img.src = '/earth_4k.jpg';
+    img.onerror = () => {
+      globeLoadPromise = null;
+      resolve(null);
+    };
+    img.onload = () => {
+      const w = img.width;
+      const h = img.height;
+
+      const darkCanvas = document.createElement('canvas');
+      darkCanvas.width = w;
+      darkCanvas.height = h;
+      const darkCtx = darkCanvas.getContext('2d');
+      darkCtx.drawImage(img, 0, 0);
+
+      const srcData = darkCtx.getImageData(0, 0, w, h);
+      const lightImgData = darkCtx.createImageData(w, h);
+      const dSrc = srcData.data;
+      const dLight = lightImgData.data;
+
+      for (let i = 0; i < dSrc.length; i += 4) {
+        const r = dSrc[i], g = dSrc[i + 1], b = dSrc[i + 2], a = dSrc[i + 3];
+        if (b > r * 1.1) {
+          dSrc[i] = 0; dSrc[i + 1] = 0; dSrc[i + 2] = 0;
+          dLight[i] = 224; dLight[i + 1] = 224; dLight[i + 2] = 224; dLight[i + 3] = a;
+        } else {
+          const brightness = (r + g + b) / (255 * 3);
+          dSrc[i] = Math.min(255, Math.floor(192 * brightness));
+          dSrc[i + 1] = 0;
+          dSrc[i + 2] = Math.min(255, Math.floor(48 * brightness));
+          const lScale = 0.35 + 0.65 * brightness;
+          dLight[i] = Math.min(255, Math.floor(192 * lScale));
+          dLight[i + 1] = 0;
+          dLight[i + 2] = Math.min(255, Math.floor(48 * lScale));
+          dLight[i + 3] = a;
+        }
+      }
+
+      darkCtx.putImageData(srcData, 0, 0);
+      const lightCanvas = document.createElement('canvas');
+      lightCanvas.width = w;
+      lightCanvas.height = h;
+      lightCanvas.getContext('2d').putImageData(lightImgData, 0, 0);
+
+      const darkTex = new THREE.CanvasTexture(darkCanvas);
+      darkTex.colorSpace = THREE.SRGBColorSpace;
+      darkTex.anisotropy = 16;
+      darkTex.minFilter = THREE.LinearFilter;
+      darkTex.magFilter = THREE.LinearFilter;
+
+      const lightTex = new THREE.CanvasTexture(lightCanvas);
+      lightTex.colorSpace = THREE.SRGBColorSpace;
+      lightTex.anisotropy = 16;
+      lightTex.minFilter = THREE.LinearFilter;
+      lightTex.magFilter = THREE.LinearFilter;
+
+      cachedDarkGlobeMat = new THREE.MeshBasicMaterial({ map: darkTex });
+      cachedLightGlobeMat = new THREE.MeshBasicMaterial({ map: lightTex });
+      resolve({ dark: cachedDarkGlobeMat, light: cachedLightGlobeMat });
+    };
+  });
+  return globeLoadPromise;
+};
+
+// Static accessors prevent unnecessary arc/ring geometry rebuilds in react-kapsule
 const getArcStartLat = (d) => d.startLat;
 const getArcStartLng = (d) => d.startLng;
 const getArcEndLat = (d) => d.endLat;
@@ -23,16 +102,29 @@ const getRingPropagationSpeed = (d) => d.propSpeed;
 const getRingRepeatPeriod = (d) => d.period;
 const getPointLabel = ({ name, count }) => `<b>${name}</b>: ${count} requests`;
 
-export default function SecurityGlobe({ geoData, attacksData, focusCoords, focusCountry, metrics, layers, timeline, onCountryClick, focusPath, viewMode }) {
+function SecurityGlobe({ geoData, attacksData, focusCoords, focusCountry, metrics, layers, timeline, onCountryClick, focusPath, viewMode }) {
   const globeEl = useRef();
   const containerRef = useRef();
   const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
-  const [globeMaterial, setGlobeMaterial] = useState(null);
+  const [materials, setMaterials] = useState(() => (
+    cachedDarkGlobeMat && cachedLightGlobeMat
+      ? { dark: cachedDarkGlobeMat, light: cachedLightGlobeMat }
+      : null
+  ));
+  const [isLight, setIsLight] = useState(getIsLightTheme);
   const [altitude, setAltitude] = useState(2.5);
   const lastAltRef = useRef(2.5);
 
+  useEffect(() => {
+    const syncTheme = () => setIsLight(getIsLightTheme());
+    syncTheme();
+    const observer = new MutationObserver(syncTheme);
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+    return () => observer.disconnect();
+  }, []);
+
   const handleZoom = useCallback(({ altitude: newAlt }) => {
-    // Обновляем высоту только при реальном изменении (порог 0.08), чтобы OrbitControls change не спамил перерендерами при вращении
+    // Only update altitude past 0.08 threshold to avoid excessive re-renders while orbiting
     if (Math.abs(newAlt - lastAltRef.current) > 0.08) {
       lastAltRef.current = newAlt;
       setAltitude(Math.round(newAlt * 10) / 10);
@@ -40,66 +132,43 @@ export default function SecurityGlobe({ geoData, attacksData, focusCoords, focus
   }, []);
 
   const timelineObjRef = useRef(null);
+  const shieldObjRef = useRef(null);
 
   useEffect(() => {
-    const img = new Image();
-    img.src = '/earth_4k.jpg';
-
-    img.onload = () => {
-      const canvas = document.createElement('canvas');
-      canvas.width = img.width;
-      canvas.height = img.height;
-      const ctx = canvas.getContext('2d');
-      ctx.drawImage(img, 0, 0);
-
-      const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-      const data = imgData.data;
-
-      for (let i = 0; i < data.length; i += 4) {
-        const r = data[i], g = data[i+1], b = data[i+2];
-        if (b > r * 1.1) {
-          data[i] = 0; data[i+1] = 0; data[i+2] = 0;
-        } else {
-          const brightness = (r + g + b) / (255 * 3);
-          data[i] = Math.floor(179 * brightness);
-          data[i+1] = 0;
-          data[i+2] = Math.floor(40 * brightness);
-        }
-      }
-      ctx.putImageData(imgData, 0, 0);
-
-      const texture = new THREE.CanvasTexture(canvas);
-      texture.colorSpace = THREE.SRGBColorSpace;
-      texture.anisotropy = 16;
-      texture.minFilter = THREE.LinearFilter;
-      texture.magFilter = THREE.LinearFilter;
-
-      const mat = new THREE.MeshBasicMaterial({ map: texture });
-      setGlobeMaterial(mat);
-    };
+    let active = true;
+    loadGlobeMaterials().then((mats) => {
+      if (active && mats) setMaterials(mats);
+    });
+    return () => { active = false; };
   }, []);
 
-  // --- ЩИТ ---
-  const createShield = (metricsData) => {
+  const globeMaterial = materials ? (isLight ? materials.light : materials.dark) : null;
+
+  // --- SHIELD ---
+  const createShield = useCallback((metricsData, lightTheme) => {
     const group = new THREE.Group();
     if (!metricsData) return group;
+    const blending = lightTheme ? THREE.NormalBlending : THREE.AdditiveBlending;
     const createGlow = (color, opacity) => {
       const mat = new THREE.MeshBasicMaterial({
-        color: color, transparent: true, opacity: opacity,
-        blending: THREE.AdditiveBlending, side: THREE.DoubleSide, depthWrite: false
+        color, transparent: true, opacity,
+        blending, side: THREE.DoubleSide, depthWrite: false
       });
-      const mesh = new THREE.Mesh(new THREE.TorusGeometry(120, 0.5, 16, 128), mat);
-      return mesh;
+      return new THREE.Mesh(new THREE.TorusGeometry(120, 0.5, 16, 128), mat);
     };
 
-    const s1 = createGlow(0xffff00, metricsData.blocked_429 > 0 ? 1.0 : 0.1); s1.name = 'glow-429'; s1.rotation.x = Math.PI / 2; s1.rotation.y = -Math.PI / 3; group.add(s1);
-    const s2 = createGlow(0x00ff00, metricsData.worker_errors_24h > 0 ? 1.0 : 0.1); s2.name = 'glow-errors'; s2.rotation.x = Math.PI / 2; s2.rotation.y = Math.PI / 3; group.add(s2);
-    const s3 = createGlow(0xff0000, metricsData.blocked_403 > 0 ? 1.0 : 0.1); s3.name = 'glow-403'; s3.rotation.x = Math.PI / 2; group.add(s3);
+    const s1 = createGlow(0xffff00, metricsData.blocked_429 > 0 ? 1.0 : (lightTheme ? 0.25 : 0.1));
+    s1.name = 'glow-429'; s1.rotation.x = Math.PI / 2; s1.rotation.y = -Math.PI / 3; group.add(s1);
+    const s2 = createGlow(lightTheme ? 0x007700 : 0x00ff00, metricsData.worker_errors_24h > 0 ? 1.0 : (lightTheme ? 0.25 : 0.1));
+    s2.name = 'glow-errors'; s2.rotation.x = Math.PI / 2; s2.rotation.y = Math.PI / 3; group.add(s2);
+    const s3 = createGlow(lightTheme ? 0xcc0000 : 0xff0000, metricsData.blocked_403 > 0 ? 1.0 : (lightTheme ? 0.25 : 0.1));
+    s3.name = 'glow-403'; s3.rotation.x = Math.PI / 2; group.add(s3);
+    shieldObjRef.current = group;
     return group;
-  };
+  }, []);
 
-  // --- ТАЙМЛАЙН ---
-  const drawTimelineBars = (canvas, data) => {
+  // --- TIMELINE ---
+  const drawTimelineBars = useCallback((canvas, data) => {
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
@@ -117,9 +186,9 @@ export default function SecurityGlobe({ geoData, attacksData, focusCoords, focus
       ctx.fillStyle = grad;
       ctx.fillRect(i * w + 2, canvas.height - h, w - 4, h);
     }
-  };
+  }, []);
 
-  const createTimeline = (timelineData) => {
+  const createTimeline = useCallback((timelineData, lightTheme) => {
     const outer = new THREE.Group();
     const spinner = new THREE.Group();
     outer.add(spinner);
@@ -128,8 +197,15 @@ export default function SecurityGlobe({ geoData, attacksData, focusCoords, focus
     drawTimelineBars(canvas, timelineData);
     const texture = new THREE.CanvasTexture(canvas);
     texture.wrapS = THREE.RepeatWrapping;
-    
-    const mat = new THREE.MeshBasicMaterial({ map: texture, transparent: true, blending: THREE.AdditiveBlending, side: THREE.DoubleSide, depthWrite: false, opacity: 0.9 });
+
+    const mat = new THREE.MeshBasicMaterial({
+      map: texture,
+      transparent: true,
+      blending: lightTheme ? THREE.NormalBlending : THREE.AdditiveBlending,
+      side: THREE.DoubleSide,
+      depthWrite: false,
+      opacity: 0.9
+    });
     const mesh = new THREE.Mesh(new THREE.CylinderGeometry(106, 106, 15, 64, 1, true), mat);
     mesh.position.y = 9.5;
     spinner.add(mesh);
@@ -144,53 +220,76 @@ export default function SecurityGlobe({ geoData, attacksData, focusCoords, focus
     outer.userData.spinner = spinner;
     timelineObjRef.current = outer;
     return outer;
-  };
+  }, [drawTimelineBars]);
 
   const customLayerData = useMemo(() => {
     const data = [];
-    if (layers.shield) data.push({ type: 'shield', metrics });
-    if (layers.timeline) data.push({ type: 'timeline', timeline });
+    if (layers.shield) data.push({ type: 'shield', metrics, isLight });
+    if (layers.timeline) data.push({ type: 'timeline', timeline, isLight });
     return data;
-  }, [metrics, layers.shield, layers.timeline, timeline]);
+  }, [metrics, layers.shield, layers.timeline, timeline, isLight]);
 
-  const createObject = (d) => {
-    if (d.type === 'shield') return createShield(d.metrics);
-    if (d.type === 'timeline') return createTimeline(d.timeline);
+  const createObject = useCallback((d) => {
+    if (d.type === 'shield') return createShield(d.metrics, d.isLight);
+    if (d.type === 'timeline') return createTimeline(d.timeline, d.isLight);
     return new THREE.Group();
-  };
+  }, [createShield, createTimeline]);
 
-  const updateObject = (obj, d) => {};
+  const updateObject = useCallback((obj, d) => {
+    if (!obj || !d) return;
+    const lightTheme = Boolean(d.isLight);
+    const blending = lightTheme ? THREE.NormalBlending : THREE.AdditiveBlending;
+    if (d.type === 'shield') {
+      obj.children.forEach((mesh) => {
+        if (!mesh.material) return;
+        mesh.material.blending = blending;
+        if (mesh.name === 'glow-errors') mesh.material.color.setHex(lightTheme ? 0x007700 : 0x00ff00);
+        if (mesh.name === 'glow-403') mesh.material.color.setHex(lightTheme ? 0xcc0000 : 0xff0000);
+        mesh.material.needsUpdate = true;
+      });
+    } else if (d.type === 'timeline' && obj.userData?.spinner) {
+      obj.userData.spinner.children.forEach((mesh) => {
+        if (mesh.material) {
+          mesh.material.blending = blending;
+          mesh.material.needsUpdate = true;
+        }
+      });
+    }
+  }, []);
 
   useEffect(() => {
-    let animId;
+    if (!layers.timeline) return undefined;
+    let animId = 0;
     const animate = () => {
-      if (timelineObjRef.current && timelineObjRef.current.userData.spinner) {
-        const spinner = timelineObjRef.current.userData.spinner;
-        const time = performance.now() * 0.001;
-        const opacity = 0.6 + Math.sin(time * 4) * 0.3;
-        if (spinner.children[0]) spinner.children[0].material.opacity = opacity;
+      if (typeof document === 'undefined' || !document.hidden) {
+        if (timelineObjRef.current && timelineObjRef.current.userData.spinner) {
+          const spinner = timelineObjRef.current.userData.spinner;
+          const time = performance.now() * 0.001;
+          const opacity = 0.6 + Math.sin(time * 4) * 0.3;
+          if (spinner.children[0]) spinner.children[0].material.opacity = opacity;
+        }
       }
       animId = requestAnimationFrame(animate);
     };
     animate();
     return () => cancelAnimationFrame(animId);
-  }, []);
+  }, [layers.timeline]);
 
-  const handleGlobeReady = () => {
+  const handleGlobeReady = useCallback(() => {
     if (!globeEl.current) return;
     const scene = globeEl.current.scene();
     if (!scene) return;
     globeEl.current.controls().autoRotate = true;
     globeEl.current.controls().autoRotateSpeed = 1.5;
     globeEl.current.pointOfView({ lat: 20, lng: 0, altitude: 4.5 });
-  };
+  }, []);
 
   useEffect(() => {
     if (timelineObjRef.current && timelineObjRef.current.userData.canvas) {
       drawTimelineBars(timelineObjRef.current.userData.canvas, timeline);
       timelineObjRef.current.userData.texture.needsUpdate = true;
     }
-  }, [timeline]);
+  }, [timeline, drawTimelineBars]);
 
   useEffect(() => {
     if (globeEl.current && focusCoords) {
@@ -206,10 +305,6 @@ export default function SecurityGlobe({ geoData, attacksData, focusCoords, focus
     }
   }, [focusCoords, focusCountry]);
 
-  const attackCountriesSet = useMemo(() => {
-    return new Set(Array.isArray(attacksData) ? attacksData.map(a => a.country) : []);
-  }, [attacksData]);
-
   const ringsBaseData = useMemo(() => (geoData || []).filter(item => countryCoords[item.country] && item.country !== 'XX').map(item => {
     const isFocused = focusCountry === item.country;
     const isDimmed = focusCountry && !isFocused;
@@ -217,14 +312,14 @@ export default function SecurityGlobe({ geoData, attacksData, focusCoords, focus
       lat: countryCoords[item.country][0],
       lng: countryCoords[item.country][1],
       name: item.country,
-      maxR: 2.0, 
-      propSpeed: 1.5, 
+      maxR: 2.0,
+      propSpeed: 1.5,
       period: 200,
       ringColor: isDimmed ? 'rgba(255, 140, 0, 0.25)' : 'rgba(255, 140, 0, 0.8)'
     };
   }), [geoData, focusCountry]);
 
-  // Динамический масштаб радиуса нод в градусах (для pointRadius)
+  // Dynamic node radius in angular degrees
   const getDynamicNodeRadius = useCallback((sizeMultiplier = 1) => {
     const MIN_SIZE = 0.01;
     const MAX_SIZE = 0.7;
@@ -234,7 +329,7 @@ export default function SecurityGlobe({ geoData, attacksData, focusCoords, focus
     return sizeMultiplier * (MIN_SIZE + t * (MAX_SIZE - MIN_SIZE));
   }, [altitude]);
 
-  // Динамическая высота цилиндров нод
+  // Dynamic node cylinder altitude
   const getDynamicNodeHeight = useCallback(() => {
     const MIN_HEIGHT = 0.01;
     const MAX_HEIGHT = 0.1;
@@ -248,17 +343,16 @@ export default function SecurityGlobe({ geoData, attacksData, focusCoords, focus
     return getDynamicNodeRadius(d.size);
   }, [getDynamicNodeRadius]);
 
-  // Динамический масштаб толщины (радиуса) дуг: минимальное значение сохраняется, максимальное немного уменьшено
+  // Dynamic arc thickness quantized to 0.02 steps to prevent TubeGeometry churn
   const getDynamicArcStroke = useCallback((sizeMultiplier = 1) => {
     const MIN_SIZE = 0.01;
-    const MAX_SIZE = 0.48; // Уменьшено с 0.70 для более изящного вида дуг на общем плане
+    const MAX_SIZE = 0.48;
     const MIN_ALT = 0.1;
     const MAX_ALT = 4.5;
     const t = Math.max(0, Math.min(1, (altitude - MIN_ALT) / (MAX_ALT - MIN_ALT)));
     const dynamicRadius = sizeMultiplier * (MIN_SIZE + t * (MAX_SIZE - MIN_SIZE));
     const arcRadiusInScene = dynamicRadius * GLOBE_PX_PER_DEG;
     const rawStroke = 2 * arcRadiusInScene * 0.9;
-    // Квантование с шагом 0.02 исключает перестроение геометрии TubeGeometry при микро-колебаниях
     return Math.round(rawStroke * 50) / 50;
   }, [altitude]);
 
@@ -279,7 +373,7 @@ export default function SecurityGlobe({ geoData, attacksData, focusCoords, focus
     };
   }), [geoData, focusCountry]);
 
-  // --- ДУГИ: КРАСНЫЕ ТОЛЬКО В РЕЖИМЕ SUSPICIOUS ACTIVITY, ИНАЧЕ СВЕТЛЫЙ INGRESS STREAM ---
+  // Arcs: crimson/red in Suspicious Activity view, monochrome ingress streams otherwise
   const arcsData = useMemo(() => {
     if (!geoData || geoData.length === 0) return [];
     const dest = countryCoords['AZ'] || [40.14, 47.57];
@@ -296,13 +390,18 @@ export default function SecurityGlobe({ geoData, attacksData, focusCoords, focus
         let arcLabel;
         if (isAttackView) {
           arcColors = isFocused
-            ? ['rgba(255, 0, 48, 0.75)', 'rgba(192, 0, 48, 0.75)']
-            : ['rgba(255, 60, 60, 0.22)', 'rgba(192, 0, 48, 0.22)'];
+            ? ['rgba(255, 0, 0, 0.75)', 'rgba(192, 0, 48, 0.75)']
+            : ['rgba(255, 0, 0, 0.22)', 'rgba(192, 0, 48, 0.22)'];
           arcLabel = `⚠️ ${item.country} → ATTACK VECTOR [${count} threat probes]`;
+        } else if (isLight) {
+          arcColors = isFocused
+            ? ['rgba(26, 26, 26, 0.75)', 'rgba(26, 26, 26, 0.65)']
+            : ['rgba(26, 26, 26, 0.22)', 'rgba(26, 26, 26, 0.22)'];
+          arcLabel = `🌐 ${item.country} → INGRESS STREAM [${count} requests]`;
         } else {
           arcColors = isFocused
             ? ['rgba(255, 255, 255, 0.8)', 'rgba(215, 215, 215, 0.75)']
-            : ['rgba(255, 255, 255, 0.22)', 'rgba(180, 180, 180, 0.22)'];
+            : ['rgba(255, 255, 255, 0.22)', 'rgba(215, 215, 215, 0.22)'];
           arcLabel = `🌐 ${item.country} → INGRESS STREAM [${count} requests]`;
         }
 
@@ -322,11 +421,16 @@ export default function SecurityGlobe({ geoData, attacksData, focusCoords, focus
             : 2400
         };
       });
-  }, [geoData, focusCountry, viewMode]);
+  }, [geoData, focusCountry, viewMode, isLight]);
 
-  const scannerRing = {
-    lat: 90, lng: 0, maxR: 180, propSpeed: 45, period: 9999999, ringColor: 'rgba(0, 255, 204, 0.8)'
-  };
+  const scannerRing = useMemo(() => ({
+    lat: 90,
+    lng: 0,
+    maxR: 180,
+    propSpeed: 45,
+    period: 9999999,
+    ringColor: isLight ? 'rgba(0, 119, 0, 0.8)' : 'rgba(0, 255, 102, 0.8)'
+  }), [isLight]);
 
   const [scannerRings, setScannerRings] = useState([]);
 
@@ -344,7 +448,7 @@ export default function SecurityGlobe({ geoData, attacksData, focusCoords, focus
       clearInterval(interval);
       setScannerRings([]);
     };
-  }, [layers.shield]);
+  }, [layers.shield, scannerRing]);
 
   const [pointsRings, setPointsRings] = useState([]);
 
@@ -355,7 +459,6 @@ export default function SecurityGlobe({ geoData, attacksData, focusCoords, focus
 
     const spawnBurst = () => {
       const baseId = Date.now();
-      // Очищаем старые таймеры перед новым залпом (фикс утечки)
       activeTimeouts.forEach(clearTimeout);
       activeTimeouts = [];
 
@@ -363,9 +466,8 @@ export default function SecurityGlobe({ geoData, attacksData, focusCoords, focus
         activeTimeouts.push(setTimeout(() => {
           setPointsRings(prev => {
             const now = Date.now();
-            // Очищаем старые кольца прямо в момент обновления (фикс утечки)
             const recent = prev.filter(r => {
-              const ts = parseInt(r.id.split('-')[0]);
+              const ts = parseInt(r.id.split('-')[0], 10);
               return now - ts < 2500;
             });
             const newRings = ringsBaseData.map(p => ({
@@ -400,11 +502,15 @@ export default function SecurityGlobe({ geoData, attacksData, focusCoords, focus
   useEffect(() => {
     if (!containerRef.current) return;
     const resizeObserver = new ResizeObserver((entries) => {
-      for (let entry of entries) setDimensions({ width: entry.contentRect.width, height: entry.contentRect.height });
+      for (const entry of entries) setDimensions({ width: entry.contentRect.width, height: entry.contentRect.height });
     });
     resizeObserver.observe(containerRef.current);
     return () => resizeObserver.disconnect();
   }, []);
+
+  const handlePointClick = useCallback((point) => {
+    if (onCountryClick && point?.name) onCountryClick(point.name);
+  }, [onCountryClick]);
 
   return (
     <div ref={containerRef} style={{ cursor: 'grab', height: '100%', width: '100%', position: 'absolute', inset: 0 }}>
@@ -416,7 +522,7 @@ export default function SecurityGlobe({ geoData, attacksData, focusCoords, focus
           globeMaterial={globeMaterial}
           backgroundColor="rgba(0,0,0,0)"
 
-          atmosphereColor={layers.atmosphere ? "#a855f7" : "rgba(0,0,0,0)"}
+          atmosphereColor={layers.atmosphere ? '#c00030' : 'rgba(0,0,0,0)'}
           atmosphereAltitude={0.15}
 
           customLayerData={customLayerData}
@@ -424,7 +530,7 @@ export default function SecurityGlobe({ geoData, attacksData, focusCoords, focus
           customThreeObjectUpdate={updateObject}
 
           pointsData={layers.threats ? pointsData : []}
-          onPointClick={(point) => onCountryClick(point.name)}
+          onPointClick={handlePointClick}
           pointsMerge={false}
           pointAltitude={getDynamicNodeHeight}
           pointsTransitionDuration={0}
@@ -461,3 +567,5 @@ export default function SecurityGlobe({ geoData, attacksData, focusCoords, focus
     </div>
   );
 }
+
+export default React.memo(SecurityGlobe);

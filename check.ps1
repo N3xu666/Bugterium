@@ -104,7 +104,7 @@ $specLongDashesPat    = if ($spec) { $spec.Base.LongDashesPattern }    else { '[
 $specUnreplacedPat    = if ($spec) { $spec.Base.UnreplacedPlaceholderPattern } else { '%%[A-Z0-9]+%%' }
 $specDocRootFiles     = if ($spec) { $spec.Base.DocRootFiles }         else { @('README.md','CHEATSHEET.md','METHODOLOGY.md','SECURITY.md') }
 $specBackslashPat     = if ($spec) { $spec.Base.BackslashEscapePattern } else { '^\\[#\[\]_()]' }
-$specDocsRoots        = if ($spec) { $spec.Base.DocsRoots }             else { @('APPLICATIONS','INFRASTRUCTURE','ANONYMITY-PRIVACY-OPSEC','AI','NETWORKS','tools') }
+$specDocsRoots        = if ($spec) { $spec.Base.DocsRoots }             else { @('APPLICATIONS','INFRASTRUCTURE','ANONYMITY-PRIVACY-OPSEC','AI','NETWORKS','CLOUD','VIRTUALIZATION','INFORMATION_SECURITY','OSINT','tools') }
 $specCitationPat      = if ($spec) { $spec.Base.CitationPattern }       else { 'citation:\d+' }
 $specDraftPath        = if ($spec) { $spec.Base.DraftPath }             else { 'txt/active-drafts' }
 $specDraftCitationPat = if ($spec) { $spec.Base.DraftCitationPattern }  else { '\[citation:\d+\]' }
@@ -335,7 +335,7 @@ Get-ChildItem -Recurse -Filter *.md |
     $_.FullName -notmatch '\\txt\\' -and
     $_.FullName -notmatch '\\tests\\' -and $_.FullName -notmatch '\\terraform\\' -and $_.FullName -notmatch '\\site\\' -and $_.FullName -notmatch '\\node_modules\\' -and
     $_.FullName -notmatch '\\tools\\' -and
-    ($_.FullName -match '\\APPLICATIONS\\' -or $_.FullName -match '\\INFRASTRUCTURE\\' -or $_.FullName -match '\\ANONYMITY-PRIVACY-OPSEC\\' -or $_.FullName -match '\\AI\\' -or $_.FullName -match '\\NETWORKS\\' -or $_.FullName -match '\\methodology\\' -or $_.Name -in $docRootFiles)
+    ($_.FullName -match '\\APPLICATIONS\\' -or $_.FullName -match '\\INFRASTRUCTURE\\' -or $_.FullName -match '\\ANONYMITY-PRIVACY-OPSEC\\' -or $_.FullName -match '\\AI\\' -or $_.FullName -match '\\NETWORKS\\' -or $_.FullName -match '\\CLOUD\\' -or $_.FullName -match '\\VIRTUALIZATION\\' -or $_.FullName -match '\\INFORMATION_SECURITY\\' -or $_.FullName -match '\\OSINT\\' -or $_.FullName -match '\\methodology\\' -or $_.Name -in $docRootFiles)
   } |
   ForEach-Object {
     $ct = [System.IO.File]::ReadAllText($_.FullName, $utf8)
@@ -456,7 +456,7 @@ if (Test-Path $readmePath) {
 Write-Host "`n=== [12/27] CVE version ranges in docs tables (WARN only) ===" -ForegroundColor Cyan
 $bareCve = @()
 Get-ChildItem -Recurse -Filter *.md |
-  Where-Object { $_.FullName -match '\\APPLICATIONS\\' -or $_.FullName -match '\\INFRASTRUCTURE\\' -or $_.FullName -match '\\ANONYMITY-PRIVACY-OPSEC\\' -or $_.FullName -match '\\AI\\' -or $_.FullName -match '\\NETWORKS\\' } |
+  Where-Object { $_.FullName -match '\\APPLICATIONS\\' -or $_.FullName -match '\\INFRASTRUCTURE\\' -or $_.FullName -match '\\ANONYMITY-PRIVACY-OPSEC\\' -or $_.FullName -match '\\AI\\' -or $_.FullName -match '\\NETWORKS\\' -or $_.FullName -match '\\CLOUD\\' -or $_.FullName -match '\\VIRTUALIZATION\\' -or $_.FullName -match '\\INFORMATION_SECURITY\\' -or $_.FullName -match '\\OSINT\\' } |
   ForEach-Object {
     $lines3 = [System.IO.File]::ReadAllLines($_.FullName, $utf8)
     for ($i = 0; $i -lt $lines3.Count; $i++) {

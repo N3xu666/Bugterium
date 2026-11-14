@@ -37,7 +37,7 @@
   grid-template-rows: 1fr 40px;
   min-height: 0;
   width: 100%;
-  background: #000;
+  background: var(--bg, #000000);
   overflow: hidden;
 }
 
@@ -45,7 +45,7 @@
 .leftCol {
   grid-column: 1;
   grid-row: 1;
-  border-right: 1px solid #1a1a1a;
+  border-right: 1px solid var(--line, #1a1a1a);
   display: flex;
   flex-direction: column;
   gap: 20px;
@@ -97,7 +97,7 @@
 .rightCol {
   grid-column: 3;
   grid-row: 1;
-  border-left: 1px solid #1a1a1a;
+  border-left: 1px solid var(--line, #1a1a1a);
   padding: 20px 20px 0 20px;
   display: flex;
   flex-direction: column;
@@ -110,13 +110,13 @@
 .leftFooter {
   grid-column: 1;
   grid-row: 2;
-  border-right: 1px solid #1a1a1a;
-  border-top: 1px solid #1a1a1a;
+  border-right: 1px solid var(--line, #1a1a1a);
+  border-top: 1px solid var(--line, #1a1a1a);
   display: flex;
   align-items: center;
   padding: 0 20px;
   font-family: 'JetBrains Mono', ui-monospace, monospace;
-  color: #666;
+  color: var(--dim, #6a6a6a);
   font-size: 11px;
   letter-spacing: 0.12em;
   z-index: 10;
@@ -126,12 +126,12 @@
 .centerFooter {
   grid-column: 2;
   grid-row: 2;
-  border-top: 1px solid #1a1a1a;
+  border-top: 1px solid var(--line, #1a1a1a);
   display: flex;
   align-items: center;
   justify-content: center;
   font-family: 'JetBrains Mono', ui-monospace, monospace;
-  color: #666;
+  color: var(--dim, #6a6a6a);
   font-size: 11px;
   letter-spacing: 0.12em;
   z-index: 10;
@@ -141,14 +141,14 @@
 .rightFooter {
   grid-column: 3;
   grid-row: 2;
-  border-left: 1px solid #1a1a1a;
-  border-top: 1px solid #1a1a1a;
+  border-left: 1px solid var(--line, #1a1a1a);
+  border-top: 1px solid var(--line, #1a1a1a);
   display: flex;
   align-items: center;
   justify-content: flex-end;
   padding: 0 20px;
   font-family: 'JetBrains Mono', ui-monospace, monospace;
-  color: #666;
+  color: var(--dim, #6a6a6a);
   font-size: 11px;
   letter-spacing: 0.12em;
   z-index: 10;
@@ -160,8 +160,8 @@
   display: flex;
   flex-direction: column;
   padding: 16px 24px;
-  border: 1px solid #1a1a1a;
-  background: rgba(0,0,0,0.85);
+  border: 1px solid var(--line, #1a1a1a);
+  background: var(--bg-elev, #0a0a0a);
   text-decoration: none;
   transition: none;
   width: 100%;
@@ -170,7 +170,7 @@
 
 .card:hover {
   border-color: #c00030;
-  background: rgba(10,0,0,0.95);
+  background: var(--bg-elev, #0a0a0a);
 }
 
 .cardLabel {
@@ -184,7 +184,7 @@
 
 .cardDesc {
   font-family: 'JetBrains Mono', ui-monospace, monospace;
-  color: #6a6a6a;
+  color: var(--dim, #6a6a6a);
   font-size: 13px;
   letter-spacing: 0.05em;
   line-height: 1.4;
@@ -198,13 +198,13 @@
   font-weight: 600;
   margin-bottom: 15px;
   padding-bottom: 10px;
-  border-bottom: 1px solid #1a1a1a;
+  border-bottom: 1px solid var(--line, #1a1a1a);
   flex-shrink: 0;
 }
 
 .threatsPlaceholder {
   font-family: 'JetBrains Mono', ui-monospace, monospace;
-  color: #6a6a6a;
+  color: var(--dim, #6a6a6a);
   font-size: 14px;
 }
 
@@ -220,14 +220,14 @@
 }
 
 .threatList::-webkit-scrollbar { width: 4px; }
-.threatList::-webkit-scrollbar-thumb { background: #1a1a1a; }
+.threatList::-webkit-scrollbar-thumb { background: var(--line, #1a1a1a); }
 
 .threatCard {
   display: flex;
   flex-direction: column;
   padding: 16px;
-  border: 1px solid #1a1a1a;
-  background: rgba(0,0,0,0.4);
+  border: 1px solid var(--line, #1a1a1a);
+  background: var(--bg-elev, #0a0a0a);
   text-decoration: none;
   transition: none;
   box-sizing: border-box;
@@ -235,7 +235,7 @@
 
 .threatCard:hover {
   border-color: #c00030;
-  background: rgba(10,0,0,0.6);
+  background: var(--bg-elev, #0a0a0a);
 }
 
 .threatHeader {
@@ -271,12 +271,12 @@
   flex-direction: row;
   align-items: center;
   gap: 4px;
-  color: #666;
+  color: var(--dim, #6a6a6a);
   font-size: 13px;
 }
 
 .nvdArrow {
-  color: #666;
+  color: var(--dim, #6a6a6a);
   transition: color 0.2s;
 }
 
@@ -285,13 +285,13 @@
   flex-direction: row;
   align-items: center;
   gap: 4px;
-  color: #ff8800;
+  color: var(--warn, #ff8800);
   font-size: 14px;
 }
 
 .threatDesc {
   font-family: 'JetBrains Mono', ui-monospace, monospace;
-  color: #6a6a6a;
+  color: var(--dim, #6a6a6a);
   font-size: 13px;
   line-height: 1.5;
   display: -webkit-box;
@@ -309,11 +309,11 @@
 
 .threatEpss { color: #a855f7; }
 .threatCard:hover .threatNvd {
-  color: #ffffff;
+  color: var(--fg-bright, #ffffff);
 }
 
 .threatCard:hover .threatNvd .nvdArrow {
-  color: #ffffff;
+  color: var(--fg-bright, #ffffff);
 }
 
 @keyframes pulse {

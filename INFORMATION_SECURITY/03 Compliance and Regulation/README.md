@@ -30,13 +30,13 @@ This subcategory maps to the following certifications:
 - **ISO 27001 LI/LA** - Clauses 4-10, Annex A.5.31 (Legal,
   statutory, regulatory and contractual requirements).
 
-See `../../CERTIFICATIONS.md` for the full matrix.
+See [../CERTIFICATIONS.md](../CERTIFICATIONS.md) for the full matrix.
 
 ## Related
 
 - [01 Governance and Frameworks](../01%20Governance%20and%20Frameworks/)
 - [02 Risk Management](../02%20Risk%20Management/)
-- 04 Security Policies and Standards (planned subcategory)
+- [04 Security Policies and Standards](../04%20Security%20Policies%20and%20Standards/)
 
 ## References
 

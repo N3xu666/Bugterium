@@ -1,37 +1,37 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 
 const TACTICS_DATA = [
   {
     id: 'TA0043',
     name: 'RECONNAISSANCE',
     techniques: [
-      { id: 'T1595', name: 'Active Scanning', status: 'probed', desc: 'Pre-attack automated port & path scanning against edge endpoints.', ref: '/reference/applications/web/reconnaissance' },
-      { id: 'T1592', name: 'Gather Victim Host Info', status: 'researched', desc: 'OSINT reconnaissance of victim server architecture.', ref: '/reference/osint/methodology' },
-      { id: 'T1590', name: 'Gather Victim Network Info', status: 'researched', desc: 'DNS, ASN, and network topology mapping.', ref: '/reference/networks/protocols/dns' }
+      { id: 'T1595', name: 'Active Scanning', status: 'probed', desc: 'Pre-attack automated port & path scanning against edge endpoints.', ref: '/reference/applications/web/recon/ports-services' },
+      { id: 'T1592', name: 'Gather Victim Host Info', status: 'researched', desc: 'OSINT reconnaissance of victim server architecture.', ref: '/reference/osint/osint-methodology/osint-fundamentals' },
+      { id: 'T1590', name: 'Gather Victim Network Info', status: 'researched', desc: 'DNS, ASN, and network topology mapping.', ref: '/reference/networks/network-protocols/dns-and-dhcp' }
     ]
   },
   {
     id: 'TA0001',
     name: 'INITIAL ACCESS',
     techniques: [
-      { id: 'T1190', name: 'Exploit Public-Facing App', status: 'probed', desc: 'Targeting known vulnerabilities in web applications (CVE-2018-9276, WordPress probes).', ref: '/reference/applications/web/vulnerabilities/command-injection' },
-      { id: 'T1078', name: 'Valid Accounts', status: 'researched', desc: 'Default or compromised credentials usage (Tomcat, Netmon, ServMon).', ref: '/reference/information-security/access-control/iam' },
-      { id: 'T1133', name: 'External Remote Services', status: 'researched', desc: 'SSH, WinRM, or VPN access with harvested credentials.', ref: '/reference/infrastructure/windows/fundamentals' }
+      { id: 'T1190', name: 'Exploit Public-Facing App', status: 'probed', desc: 'Targeting known vulnerabilities in web applications (CVE-2018-9276, WordPress probes).', ref: '/reference/applications/web/owasp-top-10/' },
+      { id: 'T1078', name: 'Valid Accounts', status: 'researched', desc: 'Default or compromised credentials usage (Tomcat, Netmon, ServMon).', ref: '/reference/infrastructure/active-directory/authentication-attacks' },
+      { id: 'T1133', name: 'External Remote Services', status: 'researched', desc: 'SSH, WinRM, or VPN access with harvested credentials.', ref: '/reference/infrastructure/mail-and-vpn/vpn-attacks' }
     ]
   },
   {
     id: 'TA0002',
     name: 'EXECUTION',
     techniques: [
-      { id: 'T1059', name: 'Command & Script Interpreter', status: 'researched', desc: 'Bash, PowerShell, and cmd.exe payload execution.', ref: '/reference/infrastructure/windows/fundamentals' },
-      { id: 'T1203', name: 'Exploitation for Client Execution', status: 'researched', desc: 'Malicious CHM / macro execution for foothold.', ref: '/reference/applications/web/vulnerabilities/file-upload' }
+      { id: 'T1059', name: 'Command & Script Interpreter', status: 'researched', desc: 'Bash, PowerShell, and cmd.exe payload execution.', ref: '/reference/applications/web/vulnerabilities/command-injection' },
+      { id: 'T1203', name: 'Exploitation for Client Execution', status: 'researched', desc: 'Malicious CHM / macro execution for foothold.', ref: '/reference/applications/web/vulnerabilities/xss' }
     ]
   },
   {
     id: 'TA0003',
     name: 'PERSISTENCE',
     techniques: [
-      { id: 'T1053', name: 'Scheduled Task / Job', status: 'researched', desc: 'Cron jobs and Windows scheduled tasks (job.bat privesc).', ref: '/reference/infrastructure/windows/persistence' },
+      { id: 'T1053', name: 'Scheduled Task / Job', status: 'researched', desc: 'Cron jobs and Windows scheduled tasks (job.bat privesc).', ref: '/reference/infrastructure/windows-infrastructure/persistence-and-defense' },
       { id: 'T1505', name: 'Server Software Component', status: 'researched', desc: 'Web shell deployment into Tomcat or IIS directories.', ref: '/reference/applications/web/vulnerabilities/file-upload' }
     ]
   },
@@ -39,16 +39,16 @@ const TACTICS_DATA = [
     id: 'TA0004',
     name: 'PRIVILEGE ESCALATION',
     techniques: [
-      { id: 'T1068', name: 'Exploitation for PrivEsc', status: 'researched', desc: 'Kernel exploits and local service vulnerabilities (NSClient++).', ref: '/reference/infrastructure/windows/privilege-escalation' },
-      { id: 'T1548', name: 'Abuse Elevation Control', status: 'researched', desc: 'Sudo misconfiguration and UAC bypass techniques.', ref: '/reference/infrastructure/windows/privilege-escalation' }
+      { id: 'T1068', name: 'Exploitation for PrivEsc', status: 'researched', desc: 'Kernel exploits and local service vulnerabilities (NSClient++).', ref: '/reference/infrastructure/windows-infrastructure/local-privilege-escalation' },
+      { id: 'T1548', name: 'Abuse Elevation Control', status: 'researched', desc: 'Sudo misconfiguration and UAC bypass techniques.', ref: '/reference/infrastructure/linux-infrastructure/local-privilege-escalation' }
     ]
   },
   {
     id: 'TA0005',
     name: 'DEFENSE EVASION',
     techniques: [
-      { id: 'T1070', name: 'Indicator Removal on Host', status: 'researched', desc: 'Artifact cleanup and log purging after intrusion.', ref: '/reference/anonymity-privacy-opsec/opsec' },
-      { id: 'T1027', name: 'Obfuscated Files or Info', status: 'researched', desc: 'Base64 encoding and payload obfuscation.', ref: '/reference/applications/web/vulnerabilities/xss' }
+      { id: 'T1070', name: 'Indicator Removal on Host', status: 'researched', desc: 'Artifact cleanup and log purging after intrusion.', ref: '/reference/infrastructure/linux-infrastructure/persistence-and-defense' },
+      { id: 'T1027', name: 'Obfuscated Files or Info', status: 'researched', desc: 'Base64 encoding and payload obfuscation.', ref: '/reference/networks/traffic-analysis-and-forensics/covert-channels-and-traffic-obfuscation' }
     ]
   },
   {
@@ -56,17 +56,17 @@ const TACTICS_DATA = [
     name: 'CREDENTIAL ACCESS',
     techniques: [
       { id: 'T1558', name: 'Steal or Forge Kerberos Tickets', status: 'researched', desc: 'Kerberoasting and AS-REP Roasting in Active Directory.', ref: '/reference/infrastructure/active-directory/enumeration' },
-      { id: 'T1003', name: 'OS Credential Dumping', status: 'researched', desc: 'DCSync, LSASS dumping, and SAM registry hive extraction.', ref: '/reference/infrastructure/active-directory/privilege-escalation' },
-      { id: 'T1552', name: 'Unsecured Credentials', status: 'probed', desc: 'Searching for .env, .aws/credentials, and web.config leaks.', ref: '/reference/applications/web/vulnerabilities/information-disclosure' },
-      { id: 'T1110', name: 'Brute Force', status: 'probed', desc: 'Automated password spraying and credential stuffing.', ref: '/reference/information-security/access-control/authentication' }
+      { id: 'T1003', name: 'OS Credential Dumping', status: 'researched', desc: 'DCSync, LSASS dumping, and SAM registry hive extraction.', ref: '/reference/infrastructure/active-directory/credential-abuse' },
+      { id: 'T1552', name: 'Unsecured Credentials', status: 'probed', desc: 'Searching for .env, .aws/credentials, and web.config leaks.', ref: '/reference/infrastructure/linux-infrastructure/credentials-and-secret-discovery' },
+      { id: 'T1110', name: 'Brute Force', status: 'probed', desc: 'Automated password spraying and credential stuffing.', ref: '/reference/infrastructure/network-attacks/password-attacks' }
     ]
   },
   {
     id: 'TA0007',
     name: 'DISCOVERY',
     techniques: [
-      { id: 'T1046', name: 'Network Service Discovery', status: 'probed', desc: 'Port enumeration with Nmap, masscan, and edge probes.', ref: '/reference/networks/protocols/tcp-udp' },
-      { id: 'T1082', name: 'System Information Discovery', status: 'researched', desc: 'Host enumeration (systeminfo, uname -a).', ref: '/reference/infrastructure/windows/fundamentals' },
+      { id: 'T1046', name: 'Network Service Discovery', status: 'probed', desc: 'Port enumeration with Nmap, masscan, and edge probes.', ref: '/reference/networks/network-protocols/tcp-and-udp' },
+      { id: 'T1082', name: 'System Information Discovery', status: 'researched', desc: 'Host enumeration (systeminfo, uname -a).', ref: '/reference/infrastructure/windows-infrastructure/enumeration-and-misconfigurations' },
       { id: 'T1087', name: 'Account Discovery', status: 'researched', desc: 'Active Directory and local user enumeration.', ref: '/reference/infrastructure/active-directory/enumeration' }
     ]
   },
@@ -82,8 +82,8 @@ const TACTICS_DATA = [
     id: 'TA0011',
     name: 'COMMAND & CONTROL',
     techniques: [
-      { id: 'T1071', name: 'Application Layer Protocol', status: 'researched', desc: 'Reverse shells over HTTP/HTTPS, DNS tunneling.', ref: '/reference/networks/protocols/http' },
-      { id: 'T1572', name: 'Protocol Tunneling', status: 'researched', desc: 'Chisel, SSH dynamic port forwarding, and ligolo-ng.', ref: '/reference/networks/protocols/tcp-udp' }
+      { id: 'T1071', name: 'Application Layer Protocol', status: 'researched', desc: 'Reverse shells over HTTP/HTTPS, DNS tunneling.', ref: '/reference/networks/network-protocols/http-and-tls' },
+      { id: 'T1572', name: 'Protocol Tunneling', status: 'researched', desc: 'Chisel, SSH dynamic port forwarding, and ligolo-ng.', ref: '/reference/infrastructure/network-attacks/pivoting-and-tunneling' }
     ]
   }
 ];
@@ -144,13 +144,13 @@ const TECHNIQUE_TELEMETRY_MAP = {
   }
 };
 
-export default function AttackMatrix({ snapshot = null }) {
+function AttackMatrix({ snapshot = null }) {
   const [selectedTech, setSelectedTech] = useState(null);
   const [filter, setFilter] = useState('all');
 
   const hasTelemetry = Boolean(snapshot && (snapshot.probes || snapshot.ua_families || snapshot.auth));
 
-  const enrichedTactics = TACTICS_DATA.map((tactic) => ({
+  const enrichedTactics = useMemo(() => TACTICS_DATA.map((tactic) => ({
     ...tactic,
     techniques: tactic.techniques.map((tech) => {
       const binding = TECHNIQUE_TELEMETRY_MAP[tech.id];
@@ -165,29 +165,32 @@ export default function AttackMatrix({ snapshot = null }) {
         sourceLabel: binding ? binding.sourceLabel : null
       };
     })
-  }));
+  })), [hasTelemetry, snapshot]);
 
-  const totalTechniques = enrichedTactics.reduce((acc, t) => acc + t.techniques.length, 0);
-  const probedCount = enrichedTactics.reduce(
-    (acc, t) => acc + t.techniques.filter((tech) => tech.status === 'probed').length,
-    0
-  );
+  const { totalTechniques, probedCount } = useMemo(() => {
+    const total = enrichedTactics.reduce((acc, t) => acc + t.techniques.length, 0);
+    const probed = enrichedTactics.reduce(
+      (acc, t) => acc + t.techniques.filter((tech) => tech.status === 'probed').length,
+      0
+    );
+    return { totalTechniques: total, probedCount: probed };
+  }, [enrichedTactics]);
 
-  const filteredTactics = enrichedTactics.map(tactic => ({
+  const filteredTactics = useMemo(() => enrichedTactics.map(tactic => ({
     ...tactic,
     techniques: tactic.techniques.filter(tech => {
       if (filter === 'researched') return tech.status === 'researched';
       if (filter === 'probed') return tech.status === 'probed';
       return true;
     })
-  }));
+  })), [enrichedTactics, filter]);
 
   return (
     <div style={{
       width: '100%',
       height: '100%',
-      backgroundColor: '#000000',
-      color: '#d7d7d7',
+      backgroundColor: 'var(--bg)',
+      color: 'var(--fg)',
       fontFamily: 'JetBrains Mono, monospace',
       display: 'flex',
       flexDirection: 'column',
@@ -200,16 +203,16 @@ export default function AttackMatrix({ snapshot = null }) {
         display: 'flex',
         justifyContent: 'space-between',
         alignItems: 'center',
-        borderBottom: '1px solid #1a1a1a',
+        borderBottom: '1px solid var(--line)',
         paddingBottom: '12px',
         marginBottom: '14px',
         flexShrink: 0
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <span style={{ color: '#00ff66', fontWeight: 'bold', fontSize: '13px', letterSpacing: '0.08em' }}>
+          <span style={{ color: 'var(--mitre)', fontWeight: 'bold', fontSize: '13px', letterSpacing: '0.08em' }}>
             [ ATT&CK COVERAGE MATRIX ]
           </span>
-          <span style={{ fontSize: '10px', color: '#6a6a6a', border: '1px solid #282828', padding: '2px 6px' }}>
+          <span style={{ fontSize: '10px', color: 'var(--dim)', border: '1px solid var(--line-strong)', padding: '2px 6px' }}>
             {probedCount} PROBED (24H) // {totalTechniques} MAPPED ({TACTICS_DATA.length} TACTICS)
           </span>
         </div>
@@ -219,9 +222,9 @@ export default function AttackMatrix({ snapshot = null }) {
           <button
             onClick={() => setFilter('all')}
             style={{
-              background: filter === 'all' ? '#1a1a1a' : 'transparent',
-              color: filter === 'all' ? '#ffffff' : '#6a6a6a',
-              border: '1px solid #282828',
+              background: filter === 'all' ? 'var(--line)' : 'transparent',
+              color: filter === 'all' ? 'var(--fg-bright)' : 'var(--dim)',
+              border: '1px solid var(--line-strong)',
               padding: '3px 8px',
               cursor: 'pointer',
               fontFamily: 'inherit'
@@ -233,8 +236,8 @@ export default function AttackMatrix({ snapshot = null }) {
             onClick={() => setFilter('researched')}
             style={{
               background: filter === 'researched' ? 'rgba(0, 255, 102, 0.12)' : 'transparent',
-              color: filter === 'researched' ? '#00ff66' : '#6a6a6a',
-              border: '1px solid #00ff66',
+              color: filter === 'researched' ? 'var(--mitre)' : 'var(--dim)',
+              border: '1px solid var(--mitre)',
               padding: '3px 8px',
               cursor: 'pointer',
               fontFamily: 'inherit'
@@ -246,7 +249,7 @@ export default function AttackMatrix({ snapshot = null }) {
             onClick={() => setFilter('probed')}
             style={{
               background: filter === 'probed' ? 'rgba(192, 0, 48, 0.12)' : 'transparent',
-              color: filter === 'probed' ? '#c00030' : '#6a6a6a',
+              color: filter === 'probed' ? '#c00030' : 'var(--dim)',
               border: '1px solid #c00030',
               padding: '3px 8px',
               cursor: 'pointer',
@@ -275,23 +278,23 @@ export default function AttackMatrix({ snapshot = null }) {
               flex: '0 0 180px',
               display: 'flex',
               flexDirection: 'column',
-              backgroundColor: '#0a0a0a',
-              border: '1px solid #1a1a1a',
+              backgroundColor: 'var(--bg-elev)',
+              border: '1px solid var(--line)',
               overflow: 'hidden'
             }}
           >
             {/* TACTIC HEADER */}
             <div style={{
               padding: '8px',
-              borderBottom: '1px solid #1a1a1a',
-              backgroundColor: '#0a0a0a',
+              borderBottom: '1px solid var(--line)',
+              backgroundColor: 'var(--bg-elev)',
               fontSize: '11px',
               fontWeight: 'bold',
-              color: '#ff8c00',
+              color: 'var(--warn)',
               letterSpacing: '0.04em'
             }}>
               <div>{tactic.name}</div>
-              <div style={{ fontSize: '9px', color: '#6a6a6a', fontWeight: 'normal', marginTop: '2px' }}>{tactic.id}</div>
+              <div style={{ fontSize: '9px', color: 'var(--dim)', fontWeight: 'normal', marginTop: '2px' }}>{tactic.id}</div>
             </div>
 
             {/* TECHNIQUES LIST */}
@@ -299,9 +302,9 @@ export default function AttackMatrix({ snapshot = null }) {
               {tactic.techniques.map(tech => {
                 const isSelected = selectedTech?.id === tech.id;
                 const isProbed = tech.status === 'probed';
-                const color = isProbed ? '#c00030' : '#00ff66';
-                const bg = isSelected ? '#1a1a1a' : (isProbed ? 'rgba(192, 0, 48, 0.10)' : 'rgba(0, 255, 102, 0.05)');
-                const border = isSelected ? '1px solid #c00030' : (isProbed ? '1px solid rgba(192, 0, 48, 0.45)' : '1px solid rgba(0, 255, 102, 0.25)');
+                const color = isProbed ? '#c00030' : 'var(--mitre)';
+                const bg = isSelected ? 'var(--line)' : (isProbed ? 'rgba(192, 0, 48, 0.10)' : 'rgba(0, 255, 102, 0.05)');
+                const border = isSelected ? '1px solid #c00030' : (isProbed ? '1px solid rgba(192, 0, 48, 0.45)' : '1px solid rgba(0, 180, 80, 0.35)');
 
                 return (
                   <div
@@ -317,18 +320,18 @@ export default function AttackMatrix({ snapshot = null }) {
                   >
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '9px', marginBottom: '2px' }}>
                       <span style={{ color: color, fontWeight: 'bold' }}>{tech.id}</span>
-                      <span style={{ fontSize: '8px', color: isProbed ? '#c00030' : '#00ff66', fontWeight: isProbed ? 'bold' : 'normal' }}>
+                      <span style={{ fontSize: '8px', color: isProbed ? '#c00030' : 'var(--mitre)', fontWeight: isProbed ? 'bold' : 'normal' }}>
                         {isProbed
                           ? (tech.liveHits !== null ? `PROBED (${tech.liveHits})` : 'PROBED')
                           : 'COVERED'}
                       </span>
                     </div>
-                    <div style={{ fontSize: '10px', color: '#ffffff', lineHeight: '1.2' }}>{tech.name}</div>
+                    <div style={{ fontSize: '10px', color: 'var(--fg-bright)', lineHeight: '1.2' }}>{tech.name}</div>
                   </div>
                 );
               })}
               {tactic.techniques.length === 0 && (
-                <div style={{ fontSize: '10px', color: '#6a6a6a', fontStyle: 'italic', padding: '10px 4px', textAlign: 'center' }}>
+                <div style={{ fontSize: '10px', color: 'var(--dim)', fontStyle: 'italic', padding: '10px 4px', textAlign: 'center' }}>
                   No matching techniques
                 </div>
               )}
@@ -342,8 +345,8 @@ export default function AttackMatrix({ snapshot = null }) {
         <div style={{
           marginTop: '10px',
           padding: '12px 16px',
-          border: '1px solid #282828',
-          backgroundColor: '#0a0a0a',
+          border: '1px solid var(--line-strong)',
+          backgroundColor: 'var(--bg-elev)',
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
@@ -352,19 +355,19 @@ export default function AttackMatrix({ snapshot = null }) {
         }}>
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '4px', flexWrap: 'wrap' }}>
-              <span style={{ color: selectedTech.status === 'probed' ? '#c00030' : '#00ff66', fontWeight: 'bold', fontSize: '13px' }}>
+              <span style={{ color: selectedTech.status === 'probed' ? '#c00030' : 'var(--mitre)', fontWeight: 'bold', fontSize: '13px' }}>
                 [{selectedTech.id}] {selectedTech.name}
               </span>
-              <span style={{ fontSize: '10px', color: '#d7d7d7', border: '1px solid #282828', padding: '1px 5px' }}>
+              <span style={{ fontSize: '10px', color: 'var(--fg)', border: '1px solid var(--line-strong)', padding: '1px 5px' }}>
                 STATUS: {selectedTech.status === 'probed' ? 'OBSERVED IN EDGE TELEMETRY' : 'RESEARCHED IN BUGTERIUM CANON'}
               </span>
               {selectedTech.sourceLabel && (
-                <span style={{ fontSize: '10px', color: '#ff8c00', border: '1px solid #282828', padding: '1px 5px' }}>
+                <span style={{ fontSize: '10px', color: 'var(--warn)', border: '1px solid var(--line-strong)', padding: '1px 5px' }}>
                   24H HITS: {selectedTech.liveHits ?? 0} ({selectedTech.sourceLabel})
                 </span>
               )}
             </div>
-            <div style={{ fontSize: '11px', color: '#888888' }}>
+            <div style={{ fontSize: '11px', color: 'var(--text-base)' }}>
               {selectedTech.desc}
             </div>
           </div>
@@ -390,8 +393,8 @@ export default function AttackMatrix({ snapshot = null }) {
               onClick={() => setSelectedTech(null)}
               style={{
                 background: 'transparent',
-                border: '1px solid #282828',
-                color: '#d7d7d7',
+                border: '1px solid var(--line-strong)',
+                color: 'var(--fg)',
                 cursor: 'pointer',
                 fontFamily: 'inherit',
                 padding: '4px 8px'
@@ -405,3 +408,5 @@ export default function AttackMatrix({ snapshot = null }) {
     </div>
   );
 }
+
+export default React.memo(AttackMatrix);

@@ -1,75 +1,41 @@
-# React + TypeScript + Vite
+# Bugterium App Frontend (`app/frontend/`)
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+React 19 + TypeScript + Vite single-page application paired with the `app/bff/` Cloudflare Worker Backend-for-Frontend.
 
-Currently, two official plugins are available:
+## Architecture & Integration
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- Served alongside the Hono BFF API (`../bff/`) featuring GitHub OAuth authentication, Cloudflare D1 persistence, rate limiting, and audit event logging.
+- Edge security telemetry is produced by `../security-monitor/` and consumed across the Bugterium platform.
 
-## React Compiler
+## Local Development & Verification
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+Bind local preview/dev servers strictly to `127.0.0.1` (never `0.0.0.0`), and always pass `--ignore-scripts` when installing new packages:
 
-## Expanding the ESLint configuration
+```powershell
+# Clean install from lockfile
+npm ci
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+# Adding new dependencies safely
+npm install <package> --ignore-scripts
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+# Lint and type-check + production build
+npm run lint
+npm run build
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-
+# Local loopback preview
+npx vite preview --host 127.0.0.1
 ```
 
-You can also install [eslint-plugin-react-x](https://npmx.dev/package/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://npmx.dev/package/eslint-plugin-react-dom) for React-specific lint rules:
+## CI Security Gates
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+Verified in [../../.github/workflows/app-ci.yml](../../.github/workflows/app-ci.yml) on pushes and pull requests to `main`:
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+- `Frontend Build` (`npm ci && npm run build`)
+- `SAST (Semgrep)` (`p/owasp-top-ten`, `p/typescript`)
+- `SCA (Trivy + npm audit)` (`HIGH,CRITICAL`, `--omit=dev --audit-level=high`)
+- `DAST (ZAP baseline)` against `app/bff/` with local D1
+- `Dependency Review` on pull requests
 
-```
+## License
+
+Application source code is licensed under the MIT License ([../../tools/LICENSE](../../tools/LICENSE)). Repository documentation is licensed under CC BY-NC 4.0 ([../../LICENSE](../../LICENSE)).
