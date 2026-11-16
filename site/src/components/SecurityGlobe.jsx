@@ -45,7 +45,7 @@ const loadGlobeMaterials = () => {
         const r = dSrc[i], g = dSrc[i + 1], b = dSrc[i + 2], a = dSrc[i + 3];
         if (b > r * 1.1) {
           dSrc[i] = 0; dSrc[i + 1] = 0; dSrc[i + 2] = 0;
-          dLight[i] = 224; dLight[i + 1] = 224; dLight[i + 2] = 224; dLight[i + 3] = a;
+          dLight[i] = 255; dLight[i + 1] = 255; dLight[i + 2] = 255; dLight[i + 3] = a;
         } else {
           const brightness = (r + g + b) / (255 * 3);
           dSrc[i] = Math.min(255, Math.floor(192 * brightness));
@@ -522,7 +522,8 @@ function SecurityGlobe({ geoData, attacksData, focusCoords, focusCountry, metric
           globeMaterial={globeMaterial}
           backgroundColor="rgba(0,0,0,0)"
 
-          atmosphereColor={layers.atmosphere ? '#c00030' : 'rgba(0,0,0,0)'}
+          showAtmosphere={!isLight}
+          atmosphereColor={isLight ? 'rgba(0,0,0,0)' : '#a855f7'}
           atmosphereAltitude={0.15}
 
           customLayerData={customLayerData}
