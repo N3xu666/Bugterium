@@ -9,6 +9,7 @@ import { errorResponse, jsonResponse } from './lib/errors';
 import { baseHeaders, corsHeaders, checkMethod, checkPath } from './lib/security';
 import { fetchGraphQLAccount, fetchGraphQLAsn } from './lib/graphql';
 import { buildSnapshot, markStale } from './lib/snapshot';
+import { exportMonitorTelemetry } from './lib/telemetry';
 
 const KV_KEY = 'snapshot:latest';
 const WINDOW_MS = 24 * 60 * 60 * 1000;
@@ -69,8 +70,10 @@ export default {
   async scheduled(
     _controller: ScheduledController,
     env: Env,
+    ctx?: ExecutionContext,
   ): Promise<void> {
-    const windowEnd = new Date();
+    const cronStartMs = Date.now();
+    const windowEnd = new Date(cronStartMs);
     const windowStart = new Date(windowEnd.getTime() - WINDOW_MS);
     const startTime = windowStart.toISOString();
 
@@ -140,6 +143,15 @@ export default {
         previousSnapshot,
       });
       await env.MONITOR_KV.put(KV_KEY, JSON.stringify(snapshot));
+      if (env.OTLP_ENDPOINT && env.OTLP_AUTH_HEADER) {
+        const cronEndMs = Date.now();
+        const otlpWork = exportMonitorTelemetry(env, snapshot, cronStartMs, cronEndMs);
+        if (ctx && typeof ctx.waitUntil === 'function') {
+          ctx.waitUntil(otlpWork);
+        } else {
+          await otlpWork;
+        }
+      }
     } catch (err) {
       console.error('scheduled_write_failed', { message: (err as Error).message });
     }

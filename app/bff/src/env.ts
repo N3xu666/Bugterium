@@ -14,6 +14,8 @@ export type Bindings = {
   GITHUB_CLIENT_SECRET: string;
   JWT_SIGNING_KEY: string;
   IP_PEPPER: string;
+  OTLP_ENDPOINT?: string;
+  OTLP_AUTH_HEADER?: string;
   
   // D1 Database
   DB: D1Database;
