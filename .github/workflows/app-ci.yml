@@ -159,7 +159,7 @@ jobs:
           cat /tmp/wrangler.log
           exit 1
       - name: ZAP Baseline Scan
-        uses: zaproxy/action-baseline@15c68dd2097803f36bcaf23ef2582c84bccdb72d  # v0.14.0
+        uses: zaproxy/action-baseline@72166cb1b917b984128586ed28801f4b4a37a0e2  # v0.14.0
         with:
           target: 'http://172.17.0.1:8787'
           cmd_options: '-a -I'
