@@ -223,3 +223,35 @@ jobs:
           if ($null -ne $LASTEXITCODE -and $LASTEXITCODE -ne 0) {
             exit $LASTEXITCODE
           }
+
+  site-audit:
+    name: Audit site dependencies (VEX gate)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./site
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1  # v7.1.0
+        with:
+          node-version: '24'
+          cache: 'npm'
+          cache-dependency-path: './site/package-lock.json'
+          package-manager-cache: false
+
+      - name: Install dependencies (no lifecycle scripts)
+        run: npm ci --ignore-scripts
+
+      - name: Security Audit (VEX Gate)
+        run: |
+          set +e
+          npm audit --omit=dev --audit-level=high --json > "$RUNNER_TEMP/npm-audit.json"
+          AUDIT_EXIT=$?
+          set -e
+          AUDIT_EXIT="$AUDIT_EXIT" node scripts/audit-deps.mjs < "$RUNNER_TEMP/npm-audit.json"
