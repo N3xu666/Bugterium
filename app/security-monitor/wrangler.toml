@@ -6,6 +6,9 @@ compatibility_date = "2024-11-01"
 SITE_HOST = "bugterium.pages.dev"
 MONITOR_HOST = "bugterium-security-monitor.bugterium.workers.dev"
 BFF_HOST = "bugterium-bff.bugterium.workers.dev"
+# Free-Tier httpRequestsAdaptiveGroups restricts clientAsn (graphql_asn_errors_1).
+# Set to "true" only on paid plans or zone-level firewallEventsAdaptive.
+ENABLE_ASN_QUERY = "false"
 
 [observability]
 enabled = true

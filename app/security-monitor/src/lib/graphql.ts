@@ -3,8 +3,15 @@
 // Contract: throws on any error. Caller (scheduled) decides stale/KV fallback.
 
 import type { Env, GraphQLAccountData, GraphQLAsnGroup, GraphQLResponse } from './types';
+import { sanitizeTelemetryText } from './aggregate';
 
 const GRAPHQL_ENDPOINT = 'https://api.cloudflare.com/client/v4/graphql';
+
+function formatGraphQLErrorDetail(msg: unknown): string {
+  if (typeof msg !== 'string') return '';
+  const cleaned = sanitizeTelemetryText(msg, 160).replace(/\s+/g, ' ').trim();
+  return cleaned ? `: ${cleaned}` : '';
+}
 
 // Copied verbatim from pre-Phase-1 src/index.ts lines 19..49.
 // DO NOT EDIT without re-running test/fixtures/graphql-response.json against real API.
@@ -67,7 +74,7 @@ export async function fetchGraphQLAccount(
   const body = (await gqlResponse.json()) as GraphQLResponse;
 
   if (body.errors && body.errors.length > 0) {
-    throw new Error(`graphql_errors_${body.errors.length}`);
+    throw new Error(`graphql_errors_${body.errors.length}${formatGraphQLErrorDetail(body.errors[0]?.message)}`);
   }
 
   const account = body.data?.viewer?.accounts?.[0];
@@ -124,7 +131,7 @@ export async function fetchGraphQLAsn(
 
   const body = (await gqlResponse.json()) as GraphQLResponse;
   if (body.errors && body.errors.length > 0) {
-    throw new Error(`graphql_asn_errors_${body.errors.length}`);
+    throw new Error(`graphql_asn_errors_${body.errors.length}${formatGraphQLErrorDetail(body.errors[0]?.message)}`);
   }
 
   return body.data?.viewer?.accounts?.[0]?.byAsn ?? [];

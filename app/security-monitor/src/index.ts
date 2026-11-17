@@ -93,10 +93,12 @@ export default {
     }
 
     try {
-      try {
-        account.byAsn = await fetchGraphQLAsn(env, startTime);
-      } catch (asnErr) {
-        console.error('scheduled_graphql_asn_skipped', { message: (asnErr as Error).message });
+      if (env.ENABLE_ASN_QUERY === 'true') {
+        try {
+          account.byAsn = await fetchGraphQLAsn(env, startTime);
+        } catch (asnErr) {
+          console.error('scheduled_graphql_asn_skipped', { message: (asnErr as Error).message });
+        }
       }
 
       let previousSnapshot: SnapshotResponse | undefined;
