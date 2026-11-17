@@ -327,4 +327,78 @@ describe('Security Monitor — scheduled (cron collector)', () => {
     expect(snap.meta.stale).toBe(false);
     expect(snap.auth?.totals.login_success).toBe(0);
   });
+
+  it('scheduled() skips fetchGraphQLAsn when ENABLE_ASN_QUERY is not "true"', async () => {
+    const fetchMock = mockGraphQLSuccess();
+    const kv = makeKV();
+    await worker.scheduled(CTRL, { ...makeEnv(kv), ENABLE_ASN_QUERY: 'false' });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const snap = JSON.parse(kv._store.get('snapshot:latest')!) as SnapshotResponse;
+    expect(snap.attacker_networks).toEqual([]);
+  });
+
+  it('scheduled() calls fetchGraphQLAsn when ENABLE_ASN_QUERY === "true" and logs sanitized detail on GraphQL errors', async () => {
+    const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify(fixture), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        }),
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ errors: [{ message: "zone does not have access to field 'clientasn'" }] }), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        }),
+      );
+    vi.stubGlobal('fetch', fetchMock);
+    const kv = makeKV();
+
+    await worker.scheduled(CTRL, { ...makeEnv(kv), ENABLE_ASN_QUERY: 'true' });
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(errSpy).toHaveBeenCalledWith('scheduled_graphql_asn_skipped', {
+      message: "graphql_asn_errors_1: zone does not have access to field 'clientasn'",
+    });
+    const snap = JSON.parse(kv._store.get('snapshot:latest')!) as SnapshotResponse;
+    expect(snap.meta.stale).toBe(false);
+    expect(snap.attacker_networks).toEqual([]);
+  });
+
+  it('scheduled() populates attacker_networks when ENABLE_ASN_QUERY === "true" returns ASN rows', async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify(fixture), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        }),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            data: {
+              viewer: {
+                accounts: [
+                  {
+                    byAsn: [
+                      { count: 9, dimensions: { clientAsn: 14061, clientASNDescription: 'DIGITALOCEAN-ASN', edgeResponseStatus: 403 } },
+                    ],
+                  },
+                ],
+              },
+            },
+          }),
+          { status: 200, headers: { 'content-type': 'application/json' } },
+        ),
+      );
+    vi.stubGlobal('fetch', fetchMock);
+    const kv = makeKV();
+
+    await worker.scheduled(CTRL, { ...makeEnv(kv), ENABLE_ASN_QUERY: 'true' });
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    const snap = JSON.parse(kv._store.get('snapshot:latest')!) as SnapshotResponse;
+    expect(snap.attacker_networks).toEqual([{ asn: 14061, description: 'DIGITALOCEAN-ASN', count: 9 }]);
+  });
 });

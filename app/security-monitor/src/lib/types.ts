@@ -19,6 +19,9 @@ export interface Env {
   SITE_HOST?: string;
   MONITOR_HOST?: string;
   BFF_HOST?: string;
+  // TD #42: Free-Tier httpRequestsAdaptiveGroups restricts clientAsn (graphql_asn_errors_1).
+  // Opt-in via ENABLE_ASN_QUERY = "true" when upgraded or on zone-level analytics.
+  ENABLE_ASN_QUERY?: string;
 }
 
 // --- Response contract v1 ---
