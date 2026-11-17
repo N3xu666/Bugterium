@@ -22,6 +22,9 @@ export interface Env {
   // TD #42: Free-Tier httpRequestsAdaptiveGroups restricts clientAsn (graphql_asn_errors_1).
   // Opt-in via ENABLE_ASN_QUERY = "true" when upgraded or on zone-level analytics.
   ENABLE_ASN_QUERY?: string;
+  // TD #26: Optional Grafana Cloud OTLP secrets (wrangler secret put).
+  OTLP_ENDPOINT?: string;
+  OTLP_AUTH_HEADER?: string;
 }
 
 // --- Response contract v1 ---

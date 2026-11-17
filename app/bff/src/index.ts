@@ -1,6 +1,7 @@
 import { Hono } from 'hono';
 import type { Bindings } from './env';
 import { securityHeaders } from './middleware/security';
+import { bffTelemetry } from './middleware/telemetry';
 import { toErrorResponse, AppError } from './lib/errors';
 import { hmacSha256 } from './lib/crypto';
 import { logAuthEvent } from './auth/session';
@@ -12,8 +13,10 @@ import admin from './routes/admin';
 
 const app = new Hono<{ Bindings: Bindings }>();
 
+app.use('/api/*', bffTelemetry);
 app.use('/api/*', securityHeaders);
 app.use('/api/*', apiRateLimit);
+app.use('/auth/*', bffTelemetry);
 app.use('/auth/*', securityHeaders);
 
 app.route('/auth', oauth);
