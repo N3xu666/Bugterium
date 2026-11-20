@@ -12,7 +12,7 @@
     "db:migrate:remote": "wrangler d1 migrations apply bugterium-db --remote"
   },
   "dependencies": {
-    "hono": "^4.13.10",
+    "hono": "^4.13.18",
     "zod": "^4.6.6"
   },
   "devDependencies": {
